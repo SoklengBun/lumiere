@@ -2,26 +2,57 @@ package database
 
 import (
 	"fmt"
-	"log"
-	"os"
 
-	"github.com/joho/godotenv"
+	"os"
+	"strconv"
+	"time"
+
+	"lumiere/internal/config"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func Connect() (*gorm.DB, error) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+func Connect(cfg *config.Config) (*gorm.DB, error) {
+	host := cfg.DBHost
+	port := cfg.DBPort
+	name := cfg.DBName
+	user := cfg.DBUser
+	pwd := cfg.DBPass
+	sslmode := cfg.DBSSLMode
+
+	if sslmode == "" {
+		sslmode = "disable"
 	}
 
-	host := os.Getenv("DB.HOST")
-	port := os.Getenv("DB.PORT")
-	name := os.Getenv("DB.NAME")
-	user := os.Getenv("DB.USER")
-	pwd := os.Getenv("DB.PASS")
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", host, user, pwd, name, port, sslmode)
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai", host, user, pwd, name, port)
-	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	getenvInt := func(key string, def int) int {
+		if v := os.Getenv(key); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				return n
+			}
+		}
+		return def
+	}
+
+	maxOpen := getenvInt("DB_MAX_OPEN_CONNS", 25)
+	maxIdle := getenvInt("DB_MAX_IDLE_CONNS", 25)
+	connMaxLifetimeMins := getenvInt("DB_CONN_MAX_LIFETIME_MIN", 15)
+
+	sqlDB.SetMaxOpenConns(maxOpen)
+	sqlDB.SetMaxIdleConns(maxIdle)
+	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetimeMins) * time.Minute)
+
+	return db, nil
 }

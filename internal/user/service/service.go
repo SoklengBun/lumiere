@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"lumiere/internal/models"
@@ -20,7 +21,7 @@ type RegisterRequest struct {
 
 type RegisterResponse struct {
 	Token string
-	User  models.User
+	User  models.PublicUser
 }
 
 type LoginRequest struct {
@@ -30,7 +31,7 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	Token string
-	User  models.User
+	User  models.PublicUser
 }
 
 type Service struct {
@@ -75,7 +76,8 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 		return nil, err
 	}
 
-	return &RegisterResponse{Token: signed, User: *user}, nil
+	pub := user.Public()
+	return &RegisterResponse{Token: signed, User: pub}, nil
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
@@ -101,5 +103,51 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, 
 		return nil, err
 	}
 
-	return &LoginResponse{Token: signed, User: *user}, nil
+	pub := user.Public()
+	return &LoginResponse{Token: signed, User: pub}, nil
+}
+
+// QuickLogin validates the provided JWT token and returns the public user if valid.
+func (s *Service) QuickLogin(ctx context.Context, tokenStr string) (*models.PublicUser, error) {
+	parsed, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("invalid signing method")
+		}
+		return []byte(s.jwtSecret), nil
+	})
+	if err != nil || !parsed.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("invalid token claims")
+	}
+
+	sub, ok := claims["sub"]
+	if !ok {
+		return nil, errors.New("missing subject in token")
+	}
+
+	var uid uint
+	switch v := sub.(type) {
+	case float64:
+		uid = uint(v)
+	case string:
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return nil, errors.New("invalid subject in token")
+		}
+		uid = uint(n)
+	default:
+		return nil, errors.New("invalid subject type in token")
+	}
+
+	user, err := s.repo.GetByID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	user.Password = ""
+	pub := user.Public()
+	return &pub, nil
 }

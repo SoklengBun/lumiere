@@ -8,4 +8,6 @@ func UserRoutes(g *echo.Group, h *Handler) {
 	g.POST("/register", h.Register)
 	// POST /login -> login
 	g.POST("/login", h.Login)
+	// GET /quick-login -> return user info from token in Authorization header
+	g.GET("/quick-login", h.QuickLogin)
 }

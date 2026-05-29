@@ -41,3 +41,21 @@ func (r *gormRepo) List(ctx context.Context) ([]lyrics.Lyrics, error) {
 	}
 	return list, nil
 }
+
+func (r *gormRepo) ListByUser(ctx context.Context, userID uint) ([]lyrics.Lyrics, error) {
+	var list []lyrics.Lyrics
+	if err := r.db.WithContext(ctx).
+		Preload("Titles").
+		Preload("Artists").
+		Preload("Contents").
+		Preload("References").
+		Where("created_by_id = ?", userID).
+		Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (r *gormRepo) Update(ctx context.Context, l *lyrics.Lyrics) error {
+	return r.db.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true}).Save(l).Error
+}

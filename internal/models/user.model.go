@@ -28,3 +28,23 @@ type User struct {
 	Name     string       `json:"name"`
 	Role     UserRoleType `json:"role" gorm:"default:2"`
 }
+
+// PublicUser is a sanitized representation safe for public responses.
+type PublicUser struct {
+	ID        uint         `json:"id"`
+	Name      string       `json:"name"`
+	Role      UserRoleType `json:"role"`
+	CreatedAt time.Time    `json:"createdAt"`
+	UpdatedAt time.Time    `json:"updatedAt"`
+}
+
+// Public returns a PublicUser with sensitive fields removed.
+func (u *User) Public() PublicUser {
+	return PublicUser{
+		ID:        u.ID,
+		Name:      u.Name,
+		Role:      u.Role,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}
+}

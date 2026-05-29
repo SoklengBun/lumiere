@@ -26,3 +26,14 @@ func (s *Service) Get(ctx context.Context, id uint) (*lyricsmodel.Lyrics, error)
 func (s *Service) List(ctx context.Context) ([]lyricsmodel.Lyrics, error) {
 	return s.repo.List(ctx)
 }
+
+func (s *Service) ListByUser(ctx context.Context, userID uint) ([]lyricsmodel.Lyrics, error) {
+	return s.repo.ListByUser(ctx, userID)
+}
+
+func (s *Service) Update(ctx context.Context, l *lyricsmodel.Lyrics) (*lyricsmodel.Lyrics, error) {
+	if err := s.repo.Update(ctx, l); err != nil {
+		return nil, err
+	}
+	return l, nil
+}

@@ -22,6 +22,10 @@ func (s *Service) FindByIDs(ctx context.Context, ids []uint) ([]artist.Artist, e
 	return s.repo.FindByIDs(ctx, ids)
 }
 
+func (s *Service) FindByName(ctx context.Context, q string) ([]artist.Artist, error) {
+	return s.repo.FindByName(ctx, q)
+}
+
 func (s *Service) List(ctx context.Context) ([]artist.Artist, error) {
 	return s.repo.List(ctx)
 }

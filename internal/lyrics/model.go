@@ -19,6 +19,9 @@ type Lyrics struct {
 	Artists    []artist.Artist  `json:"artists" gorm:"many2many:lyrics_artists;constraint:OnDelete:CASCADE"`
 	Contents   []LyricContent   `json:"contents" gorm:"foreignKey:LyricsID;constraint:OnDelete:CASCADE"`
 	References []LyricReference `json:"references" gorm:"foreignKey:LyricsID;constraint:OnDelete:CASCADE"`
+
+	// CreatedByID: which user added this lyrics entry (stored, not expanded).
+	CreatedByID uint `json:"createdById" gorm:"index"`
 }
 
 // LyricTitle stores alternative titles for a lyrics entry (e.g., Japanese, romanized).

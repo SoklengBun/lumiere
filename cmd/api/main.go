@@ -25,6 +25,14 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
+	// CORS: allow requests from frontend during development. Adjust origins
+	// for production as needed.
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
+
 	// Load .env for local development
 	_ = godotenv.Load()
 
@@ -62,7 +70,7 @@ func main() {
 	// lyrics feature
 	lyricsRepo := lyricsrepo.NewGormRepo(db)
 	lyricsSvc := lyricssvc.New(lyricsRepo)
-	lyricsHandler := lyricshandler.New(lyricsSvc, artistSvc)
+	lyricsHandler := lyricshandler.New(lyricsSvc, artistSvc, userSvc)
 	lyricsGroup := api.Group("/lyrics")
 	lyricshandler.RegisterRoutes(lyricsGroup, lyricsHandler)
 

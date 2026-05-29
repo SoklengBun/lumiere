@@ -5,6 +5,7 @@ import (
 	"lumiere/internal/artist"
 
 	"gorm.io/gorm"
+	"strings"
 )
 
 type gormRepo struct{ db *gorm.DB }
@@ -29,6 +30,21 @@ func (r *gormRepo) FindByIDs(ctx context.Context, ids []uint) ([]artist.Artist, 
 		return list, nil
 	}
 	if err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (r *gormRepo) FindByName(ctx context.Context, q string) ([]artist.Artist, error) {
+	var list []artist.Artist
+	if q == "" {
+		return list, nil
+	}
+	// case-insensitive search by name
+	pattern := "%" + strings.ToLower(q) + "%"
+	if err := r.db.WithContext(ctx).
+		Where("LOWER(name) LIKE ? OR LOWER(normalized_name) LIKE ?", pattern, pattern).
+		Find(&list).Error; err != nil {
 		return nil, err
 	}
 	return list, nil

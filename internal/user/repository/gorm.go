@@ -24,3 +24,11 @@ func (r *gormRepo) GetByUsername(ctx context.Context, username string) (*models.
 	}
 	return &u, nil
 }
+
+func (r *gormRepo) GetByID(ctx context.Context, id uint) (*models.User, error) {
+	var u models.User
+	if err := r.db.WithContext(ctx).First(&u, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}

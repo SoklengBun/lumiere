@@ -29,15 +29,15 @@ func NewFromEnv() (*Config, error) {
 	}
 
 	cfg := &Config{
-		DBHost:    get("DB_HOST", "DB.HOST"),
-		DBPort:    get("DB_PORT", "DB.PORT"),
-		DBName:    get("DB_NAME", "DB.NAME"),
-		DBUser:    get("DB_USER", "DB.USER"),
-		DBPass:    get("DB_PASS", "DB.PASS"),
-		DBSSLMode: get("DB_SSLMODE", "DB.SSLMODE"),
-		AppHost:   get("APP_HOST", "APP.HOST"),
-		AppPort:   get("APP_PORT", "APP.PORT"),
-		JWTSecret: get("JWT_SECRET", "JWT.SECRET"),
+		DBHost:    get("DB_HOST"),
+		DBPort:    get("DB_PORT"),
+		DBName:    get("DB_NAME"),
+		DBUser:    get("DB_USER"),
+		DBPass:    get("DB_PASS"),
+		DBSSLMode: get("DB_SSLMODE"),
+		AppHost:   get("APP_HOST"),
+		AppPort:   get("APP_PORT"),
+		JWTSecret: get("JWT_SECRET"),
 	}
 
 	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBName == "" || cfg.DBUser == "" || cfg.DBPass == "" || cfg.AppHost == "" || cfg.JWTSecret == "" {

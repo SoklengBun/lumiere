@@ -74,8 +74,16 @@ func New() (*echo.Echo, error) {
 }
 
 func DefaultListenAddr() string {
+	if port := os.Getenv("PORT"); port != "" {
+		return ":" + port
+	}
+
 	if addr := os.Getenv("APP_HOST"); addr != "" {
 		return addr
+	}
+
+	if port := os.Getenv("APP_PORT"); port != "" {
+		return ":" + port
 	}
 
 	return ":4000"

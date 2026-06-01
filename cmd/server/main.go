@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"lumiere/internal/app"
 )
@@ -13,7 +14,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	addr := app.DefaultListenAddr()
+	addr := os.Getenv("PORT")
+	if addr != "" {
+		addr = ":" + addr
+	} else {
+		addr = app.DefaultListenAddr()
+	}
+
+	e.Logger.Infof("listening on %s", addr)
 	if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
 		e.Logger.Fatal(err)
 	}

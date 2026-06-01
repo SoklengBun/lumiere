@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	artisthandler "lumiere/internal/artist/handlers"
@@ -13,71 +13,70 @@ import (
 	userrepo "lumiere/internal/user/repository"
 	usersvc "lumiere/internal/user/service"
 	"net/http"
+	"os"
 
 	"github.com/joho/godotenv"
-
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
-func main() {
+func New() (*echo.Echo, error) {
+	_ = godotenv.Load()
+
+	cfg, err := config.NewFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := database.Connect(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-
-	// CORS: allow requests from frontend during development. Adjust origins
-	// for production as needed.
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	// Load .env for local development
-	_ = godotenv.Load()
-
-	cfg, err := config.NewFromEnv()
-	if err != nil {
-		e.Logger.Fatal(err)
-	}
-
-	db, err := database.Connect(cfg)
-	if err != nil {
-		e.Logger.Fatal(err)
-	}
-
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World! ==> ")
 	})
 
-	// API grouping: /api
 	api := e.Group("/api")
 
-	// user feature
 	userRepo := userrepo.NewGormRepo(db)
 	userSvc := usersvc.New(userRepo, cfg.JWTSecret)
 	userHandler := userhandler.New(userSvc)
 	userGroup := api.Group("/user")
 	userhandler.UserRoutes(userGroup, userHandler)
 
-	// artist feature
 	artistRepo := artistrepo.NewGormRepo(db)
 	artistSvc := artistsvc.New(artistRepo)
 	artistHandler := artisthandler.New(artistSvc)
 	artistGroup := api.Group("/artist")
 	artisthandler.ArtistRoutes(artistGroup, artistHandler)
 
-	// lyrics feature
 	lyricsRepo := lyricsrepo.NewGormRepo(db)
 	lyricsSvc := lyricssvc.New(lyricsRepo)
 	lyricsHandler := lyricshandler.New(lyricsSvc, artistSvc, userSvc)
 	lyricsGroup := api.Group("/lyrics")
 	lyricshandler.RegisterRoutes(lyricsGroup, lyricsHandler)
 
-	// Print registered routes for debugging
 	for _, r := range e.Routes() {
 		e.Logger.Infof("route: %s %s", r.Method, r.Path)
 	}
 
-	e.Logger.Fatal(e.Start(cfg.AppHost))
+	return e, nil
+}
+
+func DefaultListenAddr() string {
+	if addr := os.Getenv("APP_HOST"); addr != "" {
+		return addr
+	}
+
+	return ":4000"
 }

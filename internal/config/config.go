@@ -40,7 +40,7 @@ func NewFromEnv() (*Config, error) {
 		JWTSecret: get("JWT_SECRET"),
 	}
 
-	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBName == "" || cfg.DBUser == "" || cfg.DBPass == "" || cfg.AppHost == "" || cfg.JWTSecret == "" {
+	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBName == "" || cfg.DBUser == "" || cfg.DBPass == "" || cfg.JWTSecret == "" {
 		return nil, errors.New("missing required environment variables")
 	}
 

@@ -1,5 +1,2 @@
 .env
 tmp
-gb-release.sh
-.env.gb
-.env.dev

@@ -13,9 +13,9 @@ const (
 
 	// Common negative codes for project-level rules
 	CodeBadRequest = -2
+	CodeNotFound   = -3
 	// CodeUnauthorized indicates the request is unauthenticated (user not logged in)
-	CodeUnauthorized = -3
-	CodeNotFound     = -404
+	CodeUnauthorized = -5
 	CodeInternal     = -4
 )
 

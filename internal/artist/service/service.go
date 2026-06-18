@@ -14,6 +14,10 @@ func (s *Service) Create(ctx context.Context, a *artist.Artist) error {
 	return s.repo.Create(ctx, a)
 }
 
+func (s *Service) Update(ctx context.Context, a *artist.Artist) error {
+	return s.repo.Update(ctx, a)
+}
+
 func (s *Service) GetByID(ctx context.Context, id uint) (*artist.Artist, error) {
 	return s.repo.GetByID(ctx, id)
 }

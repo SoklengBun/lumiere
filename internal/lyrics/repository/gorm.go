@@ -17,7 +17,7 @@ func (r *gormRepo) Create(ctx context.Context, l *lyrics.Lyrics) error {
 	return r.db.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true}).Create(l).Error
 }
 
-func (r *gormRepo) GetByID(ctx context.Context, id string) (*lyrics.Lyrics, error) {
+func (r *gormRepo) GetByID(ctx context.Context, id uint) (*lyrics.Lyrics, error) {
 	var l lyrics.Lyrics
 	if err := r.db.WithContext(ctx).
 		Preload("Artists").
@@ -71,12 +71,14 @@ func (r *gormRepo) Search(ctx context.Context, q string) ([]lyrics.Lyrics, error
 		Joins("LEFT JOIN artists ON artists.id = lyrics_artists.artist_id").
 		Where(
 			`LOWER(lyrics.title) LIKE ?
+				OR LOWER(lyrics.video_id) LIKE ?
 				OR EXISTS (
 					SELECT 1
 					FROM jsonb_array_elements_text(COALESCE(lyrics.alt_titles, '[]'::jsonb)) AS alt_title
 					WHERE LOWER(alt_title) LIKE ?
 				)
 				OR LOWER(artists.name) LIKE ?`,
+			pattern,
 			pattern,
 			pattern,
 			pattern,

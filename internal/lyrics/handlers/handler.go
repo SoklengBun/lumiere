@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"strconv"
 	"strings"
 
 	artistmodel "lumiere/internal/artist"
@@ -35,7 +36,7 @@ type coverBody struct {
 }
 
 type addBody struct {
-	ID        string        `json:"id"`
+	VideoID   string        `json:"videoId"`
 	Title     string        `json:"title"`
 	AltTitles []string      `json:"altTitles"`
 	ArtistIDs []uint        `json:"artistIds"`
@@ -44,6 +45,7 @@ type addBody struct {
 }
 
 type editBody struct {
+	VideoID   *string        `json:"videoId"`
 	Title     *string        `json:"title"`
 	AltTitles *[]string      `json:"altTitles"`
 	ArtistIDs *[]uint        `json:"artistIds"`
@@ -52,8 +54,8 @@ type editBody struct {
 }
 
 func (h *Handler) Get(c echo.Context) error {
-	id := strings.TrimSpace(c.Param("id"))
-	if id == "" {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
 		return util.JSONError(c, util.CodeBadRequest, "invalid id")
 	}
 
@@ -91,9 +93,9 @@ func (h *Handler) Add(c echo.Context) error {
 	if err := c.Bind(&b); err != nil {
 		return util.JSONError(c, util.CodeBadRequest, "missing params")
 	}
-	b.ID = strings.TrimSpace(b.ID)
-	if b.ID == "" {
-		return util.JSONError(c, util.CodeBadRequest, "id is required")
+	b.VideoID = strings.TrimSpace(b.VideoID)
+	if b.VideoID == "" {
+		return util.JSONError(c, util.CodeBadRequest, "videoId is required")
 	}
 	b.Title = strings.TrimSpace(b.Title)
 	if b.Title == "" {
@@ -129,13 +131,13 @@ func (h *Handler) Add(c echo.Context) error {
 		contents = append(contents, lyricsmodel.LyricContent{Kind: c.Kind, Content: c.Content})
 	}
 
-	covers, err := h.resolveCovers(c, b.Covers, b.ID)
+	covers, err := h.resolveCovers(c, b.Covers, b.VideoID)
 	if err != nil {
 		return err
 	}
 
 	l := &lyricsmodel.Lyrics{
-		ID:        b.ID,
+		VideoID:   b.VideoID,
 		Title:     b.Title,
 		AltTitles: altTitles,
 		Artists:   artists,
@@ -190,8 +192,8 @@ func (h *Handler) Mine(c echo.Context) error {
 }
 
 func (h *Handler) Edit(c echo.Context) error {
-	id := strings.TrimSpace(c.Param("id"))
-	if id == "" {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
 		return util.JSONError(c, util.CodeBadRequest, "invalid id")
 	}
 
@@ -224,6 +226,14 @@ func (h *Handler) Edit(c echo.Context) error {
 	var b editBody
 	if err := c.Bind(&b); err != nil {
 		return util.JSONError(c, util.CodeBadRequest, "missing params")
+	}
+
+	if b.VideoID != nil {
+		videoID := strings.TrimSpace(*b.VideoID)
+		if videoID == "" {
+			return util.JSONError(c, util.CodeBadRequest, "videoId cannot be empty")
+		}
+		existing.VideoID = videoID
 	}
 
 	if b.Title != nil {
@@ -276,7 +286,7 @@ func (h *Handler) Edit(c echo.Context) error {
 		covers := []coverBody{}
 		covers = *b.Covers
 
-		resolvedCovers, err := h.resolveCovers(c, covers, existing.ID)
+		resolvedCovers, err := h.resolveCovers(c, covers, existing.VideoID)
 		if err != nil {
 			return err
 		}
@@ -329,4 +339,12 @@ func (h *Handler) resolveCovers(c echo.Context, covers []coverBody, selfID strin
 	}
 
 	return out, nil
+}
+
+func parseUintParam(c echo.Context, key string) (uint, error) {
+	id64, err := strconv.ParseUint(c.Param(key), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return uint(id64), nil
 }

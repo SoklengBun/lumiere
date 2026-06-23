@@ -94,10 +94,9 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 
 func (s *Service) validateLyricsIDs(ctx context.Context, items []playlist.PlaylistItem) error {
 	for i := range items {
-		items[i].LyricsID = strings.TrimSpace(items[i].LyricsID)
 		items[i].DefaultCoverID = strings.TrimSpace(items[i].DefaultCoverID)
 
-		if items[i].LyricsID == "" {
+		if items[i].LyricsID == 0 {
 			return errors.New("invalid lyrics id")
 		}
 		lyrics, err := s.lyricsSvc.Get(ctx, items[i].LyricsID)

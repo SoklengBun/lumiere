@@ -77,7 +77,7 @@ Optional environment variables:
 
 - `migration.go`
 - runs GORM `AutoMigrate`
-- includes a compatibility migration to convert legacy numeric lyrics IDs into string IDs so YouTube IDs can be used as primary keys
+- includes a compatibility migration to preserve legacy string lyrics IDs as `videoId` values while restoring numeric primary keys
 
 ## Domain Model
 
@@ -121,7 +121,8 @@ Source: `internal/lyrics/model.go`
 
 Fields:
 
-- `id string`
+- `id`
+- `videoId string`
 - `title string`
 - `altTitles []string`
 - `artists []Artist`
@@ -132,7 +133,8 @@ Fields:
 Notes:
 
 - lyrics entries represent songs
-- `id` is string-based and intended to support YouTube video IDs
+- `id` is the stable numeric primary key
+- `videoId` stores the editable YouTube video ID
 - product-wise, a cover is intended to be another performance of the same song, not a full second song object
 - each cover should only need its own YouTube ID and performer list
 
@@ -317,7 +319,7 @@ HTTP status is generally kept at `200`, with the envelope code carrying applicat
 ### Already Supported
 
 - users can register and login
-- songs can be created with string IDs
+- songs can be created with editable `videoId` values
 - songs can have multiple titles
 - songs can have multiple artists
 - songs can have multiple lyric content versions

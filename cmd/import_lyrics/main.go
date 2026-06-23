@@ -111,7 +111,7 @@ func main() {
 			}
 
 			l := &lyrics.Lyrics{
-				ID:        songID,
+				VideoID:   songID,
 				Title:     title,
 				AltTitles: []string{title},
 				Artists:   artists,

@@ -20,7 +20,7 @@ func (s *Service) Add(ctx context.Context, l *lyricsmodel.Lyrics) (*lyricsmodel.
 	return l, nil
 }
 
-func (s *Service) Get(ctx context.Context, id string) (*lyricsmodel.Lyrics, error) {
+func (s *Service) Get(ctx context.Context, id uint) (*lyricsmodel.Lyrics, error) {
 	return s.repo.GetByID(ctx, id)
 }
 

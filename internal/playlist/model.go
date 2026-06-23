@@ -22,7 +22,7 @@ type PlaylistItem struct {
 	models.BaseModel
 
 	PlaylistID     uint   `json:"playlistId" gorm:"index;uniqueIndex:idx_playlist_item_position"`
-	LyricsID       string `json:"lyricsId" gorm:"index;size:64"`
+	LyricsID       uint   `json:"lyricsId" gorm:"index"`
 	Position       uint   `json:"position" gorm:"uniqueIndex:idx_playlist_item_position"`
 	Note           string `json:"note" gorm:"type:text"`
 	DefaultCoverID string `json:"defaultCoverId" gorm:"column:default_cover_id;size:64;index"`

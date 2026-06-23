@@ -26,7 +26,7 @@ type addBody struct {
 	Name          string     `json:"name"`
 	Description   string     `json:"description"`
 	IsPublic      bool       `json:"isPublic"`
-	ItemLyricsIDs []string   `json:"itemLyricsIds"`
+	ItemLyricsIDs []uint     `json:"itemLyricsIds"`
 	Items         []itemBody `json:"items"`
 }
 
@@ -35,12 +35,12 @@ type reorderBody struct {
 }
 
 type addItemsBody struct {
-	LyricsIDs []string   `json:"lyricsIds"`
+	LyricsIDs []uint     `json:"lyricsIds"`
 	Items     []itemBody `json:"items"`
 }
 
 type itemBody struct {
-	LyricsID       string `json:"lyricsId"`
+	LyricsID       uint   `json:"lyricsId"`
 	DefaultCoverID string `json:"defaultCoverId"`
 	Note           string `json:"note"`
 }
@@ -50,14 +50,15 @@ type artistName struct {
 }
 
 type compactSong struct {
-	ID      string       `json:"id"`
+	ID      uint         `json:"id"`
+	VideoID string       `json:"videoId"`
 	Name    string       `json:"name"`
 	Artists []artistName `json:"artists"`
 }
 
 type compactPlaylistItem struct {
 	ID             uint        `json:"id"`
-	LyricsID       string      `json:"lyricsId"`
+	LyricsID       uint        `json:"lyricsId"`
 	DefaultCoverID string      `json:"defaultCoverId"`
 	Position       uint        `json:"position"`
 	Note           string      `json:"note"`
@@ -169,6 +170,7 @@ func toCompactPlaylist(p playlistmodel.Playlist, homeMode bool) compactPlaylist 
 			Note:           it.Note,
 			Song: compactSong{
 				ID:      it.Lyrics.ID,
+				VideoID: it.Lyrics.VideoID,
 				Name:    name,
 				Artists: artists,
 			},
@@ -402,7 +404,7 @@ func parseUintParam(c echo.Context, key string) (uint, error) {
 	return uint(id64), nil
 }
 
-func playlistItemsFromBody(items []itemBody, legacyLyricsIDs []string) ([]playlistmodel.PlaylistItem, error) {
+func playlistItemsFromBody(items []itemBody, legacyLyricsIDs []uint) ([]playlistmodel.PlaylistItem, error) {
 	if len(items) == 0 && len(legacyLyricsIDs) > 0 {
 		items = make([]itemBody, 0, len(legacyLyricsIDs))
 		for _, lyricsID := range legacyLyricsIDs {
@@ -412,13 +414,12 @@ func playlistItemsFromBody(items []itemBody, legacyLyricsIDs []string) ([]playli
 
 	out := make([]playlistmodel.PlaylistItem, 0, len(items))
 	for i, item := range items {
-		lyricsID := strings.TrimSpace(item.LyricsID)
-		if lyricsID == "" {
+		if item.LyricsID == 0 {
 			return nil, errors.New("invalid lyrics id")
 		}
 
 		out = append(out, playlistmodel.PlaylistItem{
-			LyricsID:       lyricsID,
+			LyricsID:       item.LyricsID,
 			DefaultCoverID: strings.TrimSpace(item.DefaultCoverID),
 			Note:           item.Note,
 			Position:       uint(i + 1),

@@ -30,6 +30,23 @@ type contentBody struct {
 	Content string `json:"content"`
 }
 
+type listLyricsResponse struct {
+	models.BaseModel
+	VideoID     string                   `json:"videoId"`
+	Title       string                   `json:"title"`
+	AltTitles   []string                 `json:"altTitles"`
+	Artists     []artistmodel.Artist     `json:"artists"`
+	Covers      []lyricsmodel.LyricCover `json:"covers"`
+	CreatedByID uint                     `json:"createdById"`
+}
+
+type listResponse struct {
+	Page   int                  `json:"page"`
+	Offset int                  `json:"offset"`
+	Total  int64                `json:"total"`
+	Items  []listLyricsResponse `json:"items"`
+}
+
 type coverBody struct {
 	ID        string `json:"id"`
 	ArtistIDs []uint `json:"artistIds"`
@@ -67,11 +84,48 @@ func (h *Handler) Get(c echo.Context) error {
 }
 
 func (h *Handler) List(c echo.Context) error {
-	list, err := h.svc.List(c.Request().Context())
+	page := 1
+	if rawPage := strings.TrimSpace(c.QueryParam("page")); rawPage != "" {
+		parsedPage, err := strconv.Atoi(rawPage)
+		if err != nil || parsedPage < 1 {
+			return util.JSONError(c, util.CodeBadRequest, "invalid page")
+		}
+		page = parsedPage
+	}
+
+	offset := 10
+	if rawOffset := strings.TrimSpace(c.QueryParam("offset")); rawOffset != "" {
+		parsedOffset, err := strconv.Atoi(rawOffset)
+		if err != nil || parsedOffset < 1 {
+			return util.JSONError(c, util.CodeBadRequest, "invalid offset")
+		}
+		offset = parsedOffset
+	}
+
+	list, total, err := h.svc.List(c.Request().Context(), page, offset)
 	if err != nil {
 		return util.JSONError(c, util.CodeInternal, err.Error())
 	}
-	return util.JSONSuccess(c, list)
+
+	resp := make([]listLyricsResponse, 0, len(list))
+	for _, lyric := range list {
+		resp = append(resp, listLyricsResponse{
+			BaseModel:   lyric.BaseModel,
+			VideoID:     lyric.VideoID,
+			Title:       lyric.Title,
+			AltTitles:   lyric.AltTitles,
+			Artists:     lyric.Artists,
+			Covers:      lyric.Covers,
+			CreatedByID: lyric.CreatedByID,
+		})
+	}
+
+	return util.JSONSuccess(c, listResponse{
+		Page:   page,
+		Offset: offset,
+		Total:  total,
+		Items:  resp,
+	})
 }
 
 func (h *Handler) Search(c echo.Context) error {

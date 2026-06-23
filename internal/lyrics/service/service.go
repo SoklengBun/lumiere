@@ -24,8 +24,8 @@ func (s *Service) Get(ctx context.Context, id uint) (*lyricsmodel.Lyrics, error)
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *Service) List(ctx context.Context) ([]lyricsmodel.Lyrics, error) {
-	return s.repo.List(ctx)
+func (s *Service) List(ctx context.Context, page int, offset int) ([]lyricsmodel.Lyrics, int64, error) {
+	return s.repo.List(ctx, page, offset)
 }
 
 func (s *Service) ListByUser(ctx context.Context, userID uint) ([]lyricsmodel.Lyrics, error) {

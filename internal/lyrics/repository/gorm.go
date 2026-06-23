@@ -20,7 +20,6 @@ func (r *gormRepo) Create(ctx context.Context, l *lyrics.Lyrics) error {
 func (r *gormRepo) GetByID(ctx context.Context, id string) (*lyrics.Lyrics, error) {
 	var l lyrics.Lyrics
 	if err := r.db.WithContext(ctx).
-		Preload("Titles").
 		Preload("Artists").
 		Preload("Contents").
 		Preload("Covers").
@@ -34,7 +33,6 @@ func (r *gormRepo) GetByID(ctx context.Context, id string) (*lyrics.Lyrics, erro
 func (r *gormRepo) List(ctx context.Context) ([]lyrics.Lyrics, error) {
 	var list []lyrics.Lyrics
 	if err := r.db.WithContext(ctx).
-		Preload("Titles").
 		Preload("Artists").
 		Preload("Contents").
 		Preload("Covers").
@@ -48,7 +46,6 @@ func (r *gormRepo) List(ctx context.Context) ([]lyrics.Lyrics, error) {
 func (r *gormRepo) ListByUser(ctx context.Context, userID uint) ([]lyrics.Lyrics, error) {
 	var list []lyrics.Lyrics
 	if err := r.db.WithContext(ctx).
-		Preload("Titles").
 		Preload("Artists").
 		Preload("Contents").
 		Preload("Covers").
@@ -70,18 +67,22 @@ func (r *gormRepo) Search(ctx context.Context, q string) ([]lyrics.Lyrics, error
 	if err := r.db.WithContext(ctx).
 		Model(&lyrics.Lyrics{}).
 		Distinct("lyrics.*").
-		Joins("LEFT JOIN lyric_titles ON lyric_titles.lyrics_id = lyrics.id").
 		Joins("LEFT JOIN lyrics_artists ON lyrics_artists.lyrics_id = lyrics.id").
 		Joins("LEFT JOIN artists ON artists.id = lyrics_artists.artist_id").
 		Where(
-			"LOWER(lyrics.summary) LIKE ? OR LOWER(lyric_titles.title) LIKE ? OR LOWER(artists.name) LIKE ?",
+			`LOWER(lyrics.title) LIKE ?
+				OR EXISTS (
+					SELECT 1
+					FROM jsonb_array_elements_text(COALESCE(lyrics.alt_titles, '[]'::jsonb)) AS alt_title
+					WHERE LOWER(alt_title) LIKE ?
+				)
+				OR LOWER(artists.name) LIKE ?`,
 			pattern,
 			pattern,
 			pattern,
 		).
 		Order("lyrics.updated_at DESC").
 		Limit(20).
-		Preload("Titles").
 		Preload("Artists").
 		Preload("Contents").
 		Preload("Covers").

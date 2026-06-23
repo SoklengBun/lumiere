@@ -43,12 +43,23 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
+	if err := migrateLyricsPrimaryTitle(db); err != nil {
+		log.Fatal(err.Error())
+	}
+
+	if err := migrateLyricTitlesToArray(db); err != nil {
+		log.Fatal(err.Error())
+	}
+
+	if err := dropLegacyLyricReferences(db); err != nil {
+		log.Fatal(err.Error())
+	}
+
 	err = db.AutoMigrate(
 		&models.User{},
 		&artist.Artist{}, // also creates artist_cvs join table
 		&lyrics.Lyrics{},
 		&lyrics.LyricCover{},
-		&lyrics.LyricTitle{},
 		&lyrics.LyricContent{},
 		&playlist.Playlist{},
 		&playlist.PlaylistItem{},
@@ -56,6 +67,77 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+}
+
+func dropLegacyLyricReferences(db *gorm.DB) error {
+	return db.Exec(`DROP TABLE IF EXISTS lyric_references CASCADE;`).Error
+}
+
+func migrateLyricTitlesToArray(db *gorm.DB) error {
+	// Legacy schema stored alt titles in lyric_titles. Keep only the strings on lyrics.alt_titles.
+	return db.Exec(`DO $$
+BEGIN
+	ALTER TABLE IF EXISTS lyrics ADD COLUMN IF NOT EXISTS alt_titles JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+	IF EXISTS (
+		SELECT 1
+		FROM information_schema.tables
+		WHERE table_schema = CURRENT_SCHEMA()
+			AND table_name = 'lyric_titles'
+	) THEN
+		UPDATE lyrics l
+		SET alt_titles = x.titles
+		FROM (
+			SELECT lyrics_id, jsonb_agg(title ORDER BY id) AS titles
+			FROM lyric_titles
+			WHERE COALESCE(TRIM(title), '') <> ''
+			GROUP BY lyrics_id
+		) x
+		WHERE l.id = x.lyrics_id
+			AND COALESCE(l.alt_titles, '[]'::jsonb) = '[]'::jsonb;
+
+		DROP TABLE IF EXISTS lyric_titles CASCADE;
+	END IF;
+END $$;`).Error
+}
+
+func migrateLyricsPrimaryTitle(db *gorm.DB) error {
+	// Ensure lyrics.title exists and try to backfill from legacy summary/title rows.
+	return db.Exec(`DO $$
+BEGIN
+		ALTER TABLE IF EXISTS lyrics ADD COLUMN IF NOT EXISTS title TEXT;
+
+		IF EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = CURRENT_SCHEMA()
+				AND table_name = 'lyrics'
+				AND column_name = 'summary'
+		) THEN
+			UPDATE lyrics
+			SET title = summary
+			WHERE COALESCE(TRIM(title), '') = ''
+				AND COALESCE(TRIM(summary), '') <> '';
+		END IF;
+
+		IF EXISTS (
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = CURRENT_SCHEMA()
+				AND table_name = 'lyric_titles'
+		) THEN
+			UPDATE lyrics l
+			SET title = x.title
+			FROM (
+				SELECT DISTINCT ON (lyrics_id) lyrics_id, title
+				FROM lyric_titles
+				WHERE COALESCE(TRIM(title), '') <> ''
+				ORDER BY lyrics_id, id ASC
+			) x
+			WHERE l.id = x.lyrics_id
+				AND COALESCE(TRIM(l.title), '') = '';
+		END IF;
+END $$;`).Error
 }
 
 func migrateLyricsIDToString(db *gorm.DB) error {

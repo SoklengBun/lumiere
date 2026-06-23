@@ -111,13 +111,11 @@ func main() {
 			}
 
 			l := &lyrics.Lyrics{
-				ID:      songID,
-				Summary: title,
-				Titles: []lyrics.LyricTitle{
-					{Title: title, Normalized: strings.ToLower(title), Lang: "ja"},
-				},
-				Artists:  artists,
-				Contents: contents,
+				ID:        songID,
+				Title:     title,
+				AltTitles: []string{title},
+				Artists:   artists,
+				Contents:  contents,
 			}
 
 			if err := tx.Session(&gorm.Session{FullSaveAssociations: true}).Create(l).Error; err != nil {
@@ -141,7 +139,6 @@ func truncateAll(tx *gorm.DB) error {
 		playlists,
 		lyrics_artists,
 		lyric_contents,
-		lyric_titles,
 		lyrics,
 		artists,
 		users

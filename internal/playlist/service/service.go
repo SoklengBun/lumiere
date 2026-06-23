@@ -93,12 +93,30 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 }
 
 func (s *Service) validateLyricsIDs(ctx context.Context, items []playlist.PlaylistItem) error {
-	for _, item := range items {
-		if strings.TrimSpace(item.LyricsID) == "" {
+	for i := range items {
+		items[i].LyricsID = strings.TrimSpace(items[i].LyricsID)
+		items[i].DefaultCoverID = strings.TrimSpace(items[i].DefaultCoverID)
+
+		if items[i].LyricsID == "" {
 			return errors.New("invalid lyrics id")
 		}
-		if _, err := s.lyricsSvc.Get(ctx, item.LyricsID); err != nil {
+		lyrics, err := s.lyricsSvc.Get(ctx, items[i].LyricsID)
+		if err != nil {
 			return errors.New("one or more lyrics IDs are invalid")
+		}
+		if items[i].DefaultCoverID == "" {
+			continue
+		}
+
+		coverExists := false
+		for _, cover := range lyrics.Covers {
+			if cover.CoverID == items[i].DefaultCoverID {
+				coverExists = true
+				break
+			}
+		}
+		if !coverExists {
+			return errors.New("one or more default cover IDs are invalid")
 		}
 	}
 	return nil

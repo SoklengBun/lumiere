@@ -122,8 +122,8 @@ Source: `internal/lyrics/model.go`
 Fields:
 
 - `id string`
-- `summary`
-- `titles []LyricTitle`
+- `title string`
+- `altTitles []string`
 - `artists []Artist`
 - `contents []LyricContent`
 - `covers []LyricCover`
@@ -151,15 +151,6 @@ Notes:
 - `artists` should be the performers for that cover instance
 - this matches the product requirement where the base song owns the canonical title and lyric content, while each cover only stores performer-specific data
 - the API now accepts cover objects instead of only `coverIds`, while still tolerating legacy `coverIds` input for compatibility
-
-### LyricTitle
-
-Fields:
-
-- `lyricsId`
-- `title`
-- `normalized`
-- `lang`
 
 ### LyricContent
 
@@ -195,12 +186,14 @@ Fields:
 - `lyricsId`
 - `position`
 - `note`
+- `defaultCoverId`
 - `lyrics`
 
 Notes:
 
 - playlist order is explicit via `position`
 - playlist items resolve to lyrics records
+- playlist items can pin a cover via `defaultCoverId`
 
 ## Relationship Summary
 

@@ -36,21 +36,21 @@ type coverBody struct {
 
 type addBody struct {
 	ID        string        `json:"id"`
-	Titles    []string      `json:"titles"`
+	Title     string        `json:"title"`
+	AltTitles []string      `json:"altTitles"`
 	ArtistIDs []uint        `json:"artistIds"`
 	Covers    []coverBody   `json:"covers"`
 	CoverIDs  []string      `json:"coverIds"`
 	Contents  []contentBody `json:"contents"`
-	Summary   string        `json:"summary"`
 }
 
 type editBody struct {
-	Titles    *[]string      `json:"titles"`
+	Title     *string        `json:"title"`
+	AltTitles *[]string      `json:"altTitles"`
 	ArtistIDs *[]uint        `json:"artistIds"`
 	Covers    *[]coverBody   `json:"covers"`
 	CoverIDs  *[]string      `json:"coverIds"`
 	Contents  *[]contentBody `json:"contents"`
-	Summary   *string        `json:"summary"`
 }
 
 func (h *Handler) Get(c echo.Context) error {
@@ -97,11 +97,19 @@ func (h *Handler) Add(c echo.Context) error {
 	if b.ID == "" {
 		return util.JSONError(c, util.CodeBadRequest, "id is required")
 	}
+	b.Title = strings.TrimSpace(b.Title)
+	if b.Title == "" {
+		return util.JSONError(c, util.CodeBadRequest, "title is required")
+	}
 
-	// build Titles
-	var titles []lyricsmodel.LyricTitle
-	for _, t := range b.Titles {
-		titles = append(titles, lyricsmodel.LyricTitle{Title: t, Normalized: strings.ToLower(t)})
+	// build AltTitles
+	var altTitles []string
+	for _, t := range b.AltTitles {
+		t = strings.TrimSpace(t)
+		if t == "" {
+			continue
+		}
+		altTitles = append(altTitles, t)
 	}
 
 	// resolve Artists by IDs
@@ -129,12 +137,12 @@ func (h *Handler) Add(c echo.Context) error {
 	}
 
 	l := &lyricsmodel.Lyrics{
-		ID:       b.ID,
-		Summary:  b.Summary,
-		Titles:   titles,
-		Artists:  artists,
-		Covers:   covers,
-		Contents: contents,
+		ID:        b.ID,
+		Title:     b.Title,
+		AltTitles: altTitles,
+		Artists:   artists,
+		Covers:    covers,
+		Contents:  contents,
 	}
 	// if an Authorization header is provided, resolve the user and attach CreatedByID
 	auth := c.Request().Header.Get("Authorization")
@@ -220,17 +228,25 @@ func (h *Handler) Edit(c echo.Context) error {
 		return util.JSONError(c, util.CodeBadRequest, "missing params")
 	}
 
-	if b.Summary != nil {
-		existing.Summary = *b.Summary
+	if b.Title != nil {
+		title := strings.TrimSpace(*b.Title)
+		if title == "" {
+			return util.JSONError(c, util.CodeBadRequest, "title cannot be empty")
+		}
+		existing.Title = title
 	}
 
-	if b.Titles != nil {
-		// Replace titles only when explicitly provided.
-		titles := make([]lyricsmodel.LyricTitle, 0, len(*b.Titles))
-		for _, t := range *b.Titles {
-			titles = append(titles, lyricsmodel.LyricTitle{Title: t, Normalized: strings.ToLower(t)})
+	if b.AltTitles != nil {
+		// Replace alt titles only when explicitly provided.
+		altTitles := make([]string, 0, len(*b.AltTitles))
+		for _, t := range *b.AltTitles {
+			t = strings.TrimSpace(t)
+			if t == "" {
+				continue
+			}
+			altTitles = append(altTitles, t)
 		}
-		existing.Titles = titles
+		existing.AltTitles = altTitles
 	}
 
 	if b.ArtistIDs != nil {

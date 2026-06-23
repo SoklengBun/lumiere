@@ -8,19 +8,25 @@
 
 - list all songs in the playlist
 - the song in the list of playlist no need detail, only need name, artist, id
+- in playlist as song have covers, the playlist able to select certain cover for the song as default to play in the playlist
+  - so there should be sth to mark e.g song A default cover B for playlist X
 
 #Song detail page
 
 - artistsType
   - name string
+  - cv artistsType
+
+- coverType
+  - id string (will use youtube video id for this)
+  - artists artistsType[]
 
 - have all detail about the song
   - id string (will use youtube video id for this)
-  - name string []
+  - title string
+  - altTitle string[]
   - artists artistsType[]
-  - covers
-    - artists artistsType[]
-    - id string (will use youtube video id for this)
+  - covers coverType[]
   - lyrics (have support for multiple language e.g. english, japanese, romaji, chinese, pinyin, etc)
 
 #Add song page

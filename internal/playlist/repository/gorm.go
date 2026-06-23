@@ -16,7 +16,6 @@ func (r *gormRepo) preload(db *gorm.DB) *gorm.DB {
 	return db.
 		Preload("Items", func(tx *gorm.DB) *gorm.DB { return tx.Order("position ASC") }).
 		Preload("Items.Lyrics").
-		Preload("Items.Lyrics.Titles").
 		Preload("Items.Lyrics.Artists")
 }
 

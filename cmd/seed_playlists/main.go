@@ -81,7 +81,7 @@ func main() {
 				p.Items = append(p.Items, playlist.PlaylistItem{
 					LyricsID: songs[idx].ID,
 					Position: uint(j + 1),
-					Note:     strings.TrimSpace(songs[idx].Summary),
+					Note:     strings.TrimSpace(songs[idx].Title),
 				})
 				idx++
 			}

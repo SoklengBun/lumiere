@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"lumiere/internal/models"
 	playlistmodel "lumiere/internal/playlist"
 	playlistsvc "lumiere/internal/playlist/service"
@@ -22,10 +23,11 @@ func New(svc *playlistsvc.Service, userSvc *usersvc.Service) *Handler {
 }
 
 type addBody struct {
-	Name          string   `json:"name"`
-	Description   string   `json:"description"`
-	IsPublic      bool     `json:"isPublic"`
-	ItemLyricsIDs []string `json:"itemLyricsIds"`
+	Name          string     `json:"name"`
+	Description   string     `json:"description"`
+	IsPublic      bool       `json:"isPublic"`
+	ItemLyricsIDs []string   `json:"itemLyricsIds"`
+	Items         []itemBody `json:"items"`
 }
 
 type reorderBody struct {
@@ -33,7 +35,14 @@ type reorderBody struct {
 }
 
 type addItemsBody struct {
-	LyricsIDs []string `json:"lyricsIds"`
+	LyricsIDs []string   `json:"lyricsIds"`
+	Items     []itemBody `json:"items"`
+}
+
+type itemBody struct {
+	LyricsID       string `json:"lyricsId"`
+	DefaultCoverID string `json:"defaultCoverId"`
+	Note           string `json:"note"`
 }
 
 type artistName struct {
@@ -47,10 +56,12 @@ type compactSong struct {
 }
 
 type compactPlaylistItem struct {
-	ID       uint        `json:"id"`
-	LyricsID string      `json:"lyricsId"`
-	Position uint        `json:"position"`
-	Song     compactSong `json:"song"`
+	ID             uint        `json:"id"`
+	LyricsID       string      `json:"lyricsId"`
+	DefaultCoverID string      `json:"defaultCoverId"`
+	Position       uint        `json:"position"`
+	Note           string      `json:"note"`
+	Song           compactSong `json:"song"`
 }
 
 type compactPlaylist struct {
@@ -145,15 +156,17 @@ func toCompactPlaylist(p playlistmodel.Playlist, homeMode bool) compactPlaylist 
 			artists = append(artists, artistName{Name: a.Name})
 		}
 
-		name := strings.TrimSpace(it.Lyrics.Summary)
-		if name == "" && len(it.Lyrics.Titles) > 0 {
-			name = it.Lyrics.Titles[0].Title
+		name := strings.TrimSpace(it.Lyrics.Title)
+		if name == "" && len(it.Lyrics.AltTitles) > 0 {
+			name = it.Lyrics.AltTitles[0]
 		}
 
 		outItems = append(outItems, compactPlaylistItem{
-			ID:       it.ID,
-			LyricsID: it.LyricsID,
-			Position: it.Position,
+			ID:             it.ID,
+			LyricsID:       it.LyricsID,
+			DefaultCoverID: it.DefaultCoverID,
+			Position:       it.Position,
+			Note:           it.Note,
 			Song: compactSong{
 				ID:      it.Lyrics.ID,
 				Name:    name,
@@ -186,13 +199,9 @@ func (h *Handler) Add(c echo.Context) error {
 		return util.JSONError(c, util.CodeBadRequest, "name is required")
 	}
 
-	items := make([]playlistmodel.PlaylistItem, 0, len(b.ItemLyricsIDs))
-	for i, lyricsID := range b.ItemLyricsIDs {
-		lyricsID = strings.TrimSpace(lyricsID)
-		if lyricsID == "" {
-			return util.JSONError(c, util.CodeBadRequest, "invalid lyrics id")
-		}
-		items = append(items, playlistmodel.PlaylistItem{LyricsID: lyricsID, Position: uint(i + 1)})
+	items, err := playlistItemsFromBody(b.Items, b.ItemLyricsIDs)
+	if err != nil {
+		return util.JSONError(c, util.CodeBadRequest, err.Error())
 	}
 
 	p := &playlistmodel.Playlist{
@@ -230,13 +239,9 @@ func (h *Handler) Edit(c echo.Context) error {
 		return util.JSONError(c, util.CodeBadRequest, "name is required")
 	}
 
-	items := make([]playlistmodel.PlaylistItem, 0, len(b.ItemLyricsIDs))
-	for i, lyricsID := range b.ItemLyricsIDs {
-		lyricsID = strings.TrimSpace(lyricsID)
-		if lyricsID == "" {
-			return util.JSONError(c, util.CodeBadRequest, "invalid lyrics id")
-		}
-		items = append(items, playlistmodel.PlaylistItem{LyricsID: lyricsID, Position: uint(i + 1)})
+	items, err := playlistItemsFromBody(b.Items, b.ItemLyricsIDs)
+	if err != nil {
+		return util.JSONError(c, util.CodeBadRequest, err.Error())
 	}
 
 	p.Name = b.Name
@@ -283,17 +288,12 @@ func (h *Handler) AddItems(c echo.Context) error {
 	if err := c.Bind(&b); err != nil {
 		return util.JSONError(c, util.CodeBadRequest, "missing params")
 	}
-	if len(b.LyricsIDs) == 0 {
-		return util.JSONError(c, util.CodeBadRequest, "lyricsIds is required")
+	items, err := playlistItemsFromBody(b.Items, b.LyricsIDs)
+	if err != nil {
+		return util.JSONError(c, util.CodeBadRequest, err.Error())
 	}
-
-	items := make([]playlistmodel.PlaylistItem, 0, len(b.LyricsIDs))
-	for _, lyricsID := range b.LyricsIDs {
-		lyricsID = strings.TrimSpace(lyricsID)
-		if lyricsID == "" {
-			return util.JSONError(c, util.CodeBadRequest, "invalid lyrics id")
-		}
-		items = append(items, playlistmodel.PlaylistItem{LyricsID: lyricsID})
+	if len(items) == 0 {
+		return util.JSONError(c, util.CodeBadRequest, "items is required")
 	}
 
 	if err := h.svc.AddItems(c.Request().Context(), id, items); err != nil {
@@ -400,4 +400,30 @@ func parseUintParam(c echo.Context, key string) (uint, error) {
 		return 0, err
 	}
 	return uint(id64), nil
+}
+
+func playlistItemsFromBody(items []itemBody, legacyLyricsIDs []string) ([]playlistmodel.PlaylistItem, error) {
+	if len(items) == 0 && len(legacyLyricsIDs) > 0 {
+		items = make([]itemBody, 0, len(legacyLyricsIDs))
+		for _, lyricsID := range legacyLyricsIDs {
+			items = append(items, itemBody{LyricsID: lyricsID})
+		}
+	}
+
+	out := make([]playlistmodel.PlaylistItem, 0, len(items))
+	for i, item := range items {
+		lyricsID := strings.TrimSpace(item.LyricsID)
+		if lyricsID == "" {
+			return nil, errors.New("invalid lyrics id")
+		}
+
+		out = append(out, playlistmodel.PlaylistItem{
+			LyricsID:       lyricsID,
+			DefaultCoverID: strings.TrimSpace(item.DefaultCoverID),
+			Note:           item.Note,
+			Position:       uint(i + 1),
+		})
+	}
+
+	return out, nil
 }

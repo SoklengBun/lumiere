@@ -40,7 +40,6 @@ type addBody struct {
 	AltTitles []string      `json:"altTitles"`
 	ArtistIDs []uint        `json:"artistIds"`
 	Covers    []coverBody   `json:"covers"`
-	CoverIDs  []string      `json:"coverIds"`
 	Contents  []contentBody `json:"contents"`
 }
 
@@ -49,7 +48,6 @@ type editBody struct {
 	AltTitles *[]string      `json:"altTitles"`
 	ArtistIDs *[]uint        `json:"artistIds"`
 	Covers    *[]coverBody   `json:"covers"`
-	CoverIDs  *[]string      `json:"coverIds"`
 	Contents  *[]contentBody `json:"contents"`
 }
 
@@ -131,7 +129,7 @@ func (h *Handler) Add(c echo.Context) error {
 		contents = append(contents, lyricsmodel.LyricContent{Kind: c.Kind, Content: c.Content})
 	}
 
-	covers, err := h.resolveCovers(c, b.Covers, b.CoverIDs, b.ID)
+	covers, err := h.resolveCovers(c, b.Covers, b.ID)
 	if err != nil {
 		return err
 	}
@@ -274,17 +272,11 @@ func (h *Handler) Edit(c echo.Context) error {
 		existing.Contents = contents
 	}
 
-	if b.Covers != nil || b.CoverIDs != nil {
+	if b.Covers != nil {
 		covers := []coverBody{}
-		coverIDs := []string{}
-		if b.Covers != nil {
-			covers = *b.Covers
-		}
-		if b.CoverIDs != nil {
-			coverIDs = *b.CoverIDs
-		}
+		covers = *b.Covers
 
-		resolvedCovers, err := h.resolveCovers(c, covers, coverIDs, existing.ID)
+		resolvedCovers, err := h.resolveCovers(c, covers, existing.ID)
 		if err != nil {
 			return err
 		}
@@ -298,16 +290,9 @@ func (h *Handler) Edit(c echo.Context) error {
 	return util.JSONSuccess(c, updated)
 }
 
-func (h *Handler) resolveCovers(c echo.Context, covers []coverBody, legacyCoverIDs []string, selfID string) ([]lyricsmodel.LyricCover, error) {
-	if len(covers) == 0 && len(legacyCoverIDs) == 0 {
+func (h *Handler) resolveCovers(c echo.Context, covers []coverBody, selfID string) ([]lyricsmodel.LyricCover, error) {
+	if len(covers) == 0 {
 		return nil, nil
-	}
-
-	if len(covers) == 0 && len(legacyCoverIDs) > 0 {
-		covers = make([]coverBody, 0, len(legacyCoverIDs))
-		for _, coverID := range legacyCoverIDs {
-			covers = append(covers, coverBody{ID: coverID})
-		}
 	}
 
 	seen := make(map[string]struct{}, len(covers))

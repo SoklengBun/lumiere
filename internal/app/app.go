@@ -9,6 +9,9 @@ import (
 	lyricshandler "lumiere/internal/lyrics/handlers"
 	lyricsrepo "lumiere/internal/lyrics/repository"
 	lyricssvc "lumiere/internal/lyrics/service"
+	playlisthandler "lumiere/internal/playlist/handlers"
+	playlistrepo "lumiere/internal/playlist/repository"
+	playlistsvc "lumiere/internal/playlist/service"
 	userhandler "lumiere/internal/user/handlers"
 	userrepo "lumiere/internal/user/repository"
 	usersvc "lumiere/internal/user/service"
@@ -65,6 +68,12 @@ func New() (*echo.Echo, error) {
 	lyricsHandler := lyricshandler.New(lyricsSvc, artistSvc, userSvc)
 	lyricsGroup := api.Group("/lyrics")
 	lyricshandler.RegisterRoutes(lyricsGroup, lyricsHandler)
+
+	playlistRepo := playlistrepo.NewGormRepo(db)
+	playlistSvc := playlistsvc.New(playlistRepo, lyricsSvc)
+	playlistHandler := playlisthandler.New(playlistSvc, userSvc)
+	playlistGroup := api.Group("/playlist")
+	playlisthandler.RegisterRoutes(playlistGroup, playlistHandler)
 
 	for _, r := range e.Routes() {
 		e.Logger.Infof("route: %s %s", r.Method, r.Path)

@@ -10,6 +10,7 @@ import (
 	"lumiere/internal/database"
 	"lumiere/internal/lyrics"
 	"lumiere/internal/models"
+	"lumiere/internal/playlist"
 )
 
 func main() {
@@ -29,9 +30,10 @@ func main() {
 		&models.User{},
 		&artist.Artist{},
 		&lyrics.Lyrics{},
-		&lyrics.LyricTitle{},
+		&lyrics.LyricCover{},
 		&lyrics.LyricContent{},
-		&lyrics.LyricReference{},
+		&playlist.Playlist{},
+		&playlist.PlaylistItem{},
 	)
 	if err != nil {
 		log.Fatal(err.Error())

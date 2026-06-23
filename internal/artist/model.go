@@ -6,6 +6,10 @@ import "lumiere/internal/models"
 type Artist struct {
 	models.BaseModel
 
-	Name           string `json:"name" gorm:"size:255;index"`
-	NormalizedName string `json:"normalizedName" gorm:"size:255;index"`
+	Name    string `json:"name" gorm:"size:255"`
+	AltName string `json:"altName" gorm:"size:255"`
+
+	// CVID is the ID of the real voice actor behind this artist (e.g. a character voiced by a person).
+	CVID *uint   `json:"cvId" gorm:"index"`
+	CV   *Artist `json:"cv" gorm:"foreignKey:CVID"`
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	lyricsmodel "lumiere/internal/lyrics"
 	lyricsrepo "lumiere/internal/lyrics/repository"
+	"strings"
 )
 
 type Service struct {
@@ -23,12 +24,20 @@ func (s *Service) Get(ctx context.Context, id uint) (*lyricsmodel.Lyrics, error)
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *Service) List(ctx context.Context) ([]lyricsmodel.Lyrics, error) {
-	return s.repo.List(ctx)
+func (s *Service) List(ctx context.Context, page int, offset int) ([]lyricsmodel.Lyrics, int64, error) {
+	return s.repo.List(ctx, page, offset)
 }
 
 func (s *Service) ListByUser(ctx context.Context, userID uint) ([]lyricsmodel.Lyrics, error) {
 	return s.repo.ListByUser(ctx, userID)
+}
+
+func (s *Service) Search(ctx context.Context, q string) ([]lyricsmodel.Lyrics, error) {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return []lyricsmodel.Lyrics{}, nil
+	}
+	return s.repo.Search(ctx, q)
 }
 
 func (s *Service) Update(ctx context.Context, l *lyricsmodel.Lyrics) (*lyricsmodel.Lyrics, error) {

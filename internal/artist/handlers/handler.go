@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"strconv"
 
 	artistmodel "lumiere/internal/artist"
@@ -19,10 +20,24 @@ type addBody struct {
 	AltName string `json:"altName"`
 }
 
+type optionalString struct {
+	Set   bool
+	Value string
+}
+
+func (o *optionalString) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	if string(data) == "null" {
+		o.Value = ""
+		return nil
+	}
+	return json.Unmarshal(data, &o.Value)
+}
+
 type updateBody struct {
-	Name    string `json:"name"`
-	AltName string `json:"altName"`
-	CVID    *uint  `json:"cvId"`
+	Name    string         `json:"name"`
+	AltName optionalString `json:"altName"`
+	CVID    *uint          `json:"cvId"`
 }
 
 func (h *Handler) Get(c echo.Context) error {
@@ -75,8 +90,8 @@ func (h *Handler) Update(c echo.Context) error {
 	if b.Name != "" {
 		existing.Name = b.Name
 	}
-	if b.AltName != "" {
-		existing.AltName = b.AltName
+	if b.AltName.Set {
+		existing.AltName = b.AltName.Value
 	}
 	existing.CVID = b.CVID
 	if err := h.svc.Update(c.Request().Context(), existing); err != nil {

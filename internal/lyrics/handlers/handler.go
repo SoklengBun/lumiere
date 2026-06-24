@@ -71,12 +71,19 @@ type editBody struct {
 }
 
 func (h *Handler) Get(c echo.Context) error {
-	id, err := parseUintParam(c, "id")
-	if err != nil {
-		return util.JSONError(c, util.CodeBadRequest, "invalid id")
+	rawID := strings.TrimSpace(c.Param("id"))
+	var (
+		l   *lyricsmodel.Lyrics
+		err error
+	)
+	if id, parseErr := strconv.ParseUint(rawID, 10, 64); parseErr == nil {
+		l, err = h.svc.Get(c.Request().Context(), uint(id))
+	} else {
+		if rawID == "" {
+			return util.JSONError(c, util.CodeBadRequest, "invalid id")
+		}
+		l, err = h.svc.GetByVideoID(c.Request().Context(), rawID)
 	}
-
-	l, err := h.svc.Get(c.Request().Context(), id)
 	if err != nil {
 		return util.JSONError(c, util.CodeNotFound, err.Error())
 	}
@@ -139,7 +146,20 @@ func (h *Handler) Search(c echo.Context) error {
 		return util.JSONError(c, util.CodeInternal, err.Error())
 	}
 
-	return util.JSONSuccess(c, list)
+	resp := make([]listLyricsResponse, 0, len(list))
+	for _, lyric := range list {
+		resp = append(resp, listLyricsResponse{
+			BaseModel:   lyric.BaseModel,
+			VideoID:     lyric.VideoID,
+			Title:       lyric.Title,
+			AltTitles:   lyric.AltTitles,
+			Artists:     lyric.Artists,
+			Covers:      lyric.Covers,
+			CreatedByID: lyric.CreatedByID,
+		})
+	}
+
+	return util.JSONSuccess(c, resp)
 }
 
 func (h *Handler) Add(c echo.Context) error {

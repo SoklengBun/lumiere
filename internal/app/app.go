@@ -6,6 +6,8 @@ import (
 	artistsvc "lumiere/internal/artist/service"
 	"lumiere/internal/config"
 	"lumiere/internal/database"
+	homehandler "lumiere/internal/home/handlers"
+	homesvc "lumiere/internal/home/service"
 	lyricshandler "lumiere/internal/lyrics/handlers"
 	lyricsrepo "lumiere/internal/lyrics/repository"
 	lyricssvc "lumiere/internal/lyrics/service"
@@ -74,6 +76,11 @@ func New() (*echo.Echo, error) {
 	playlistHandler := playlisthandler.New(playlistSvc, userSvc)
 	playlistGroup := api.Group("/playlist")
 	playlisthandler.RegisterRoutes(playlistGroup, playlistHandler)
+
+	homeSvc := homesvc.New(lyricsSvc, playlistSvc)
+	homeHandler := homehandler.New(homeSvc)
+	homeGroup := api.Group("/home")
+	homehandler.RegisterRoutes(homeGroup, homeHandler)
 
 	for _, r := range e.Routes() {
 		e.Logger.Infof("route: %s %s", r.Method, r.Path)

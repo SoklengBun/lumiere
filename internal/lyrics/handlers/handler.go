@@ -348,10 +348,50 @@ func (h *Handler) Edit(c echo.Context) error {
 	}
 
 	if b.Contents != nil {
-		// Replace contents only when explicitly provided.
-		contents := make([]lyricsmodel.LyricContent, 0, len(*b.Contents))
+		contentsByKind := make(map[string]lyricsmodel.LyricContent, len(existing.Contents))
+		order := make([]string, 0, len(existing.Contents))
+		for _, content := range existing.Contents {
+			kind := strings.TrimSpace(content.Kind)
+			if kind == "" {
+				continue
+			}
+			content.Kind = kind
+			contentsByKind[kind] = content
+			order = append(order, kind)
+		}
+
 		for _, cbody := range *b.Contents {
-			contents = append(contents, lyricsmodel.LyricContent{Kind: cbody.Kind, Content: cbody.Content})
+			kind := strings.TrimSpace(cbody.Kind)
+			if kind == "" {
+				continue
+			}
+
+			content := strings.TrimSpace(cbody.Content)
+			if content == "" {
+				delete(contentsByKind, kind)
+				continue
+			}
+
+			if existingContent, ok := contentsByKind[kind]; ok {
+				existingContent.Content = content
+				contentsByKind[kind] = existingContent
+				continue
+			}
+
+			contentsByKind[kind] = lyricsmodel.LyricContent{
+				Kind:    kind,
+				Content: content,
+			}
+			order = append(order, kind)
+		}
+
+		contents := make([]lyricsmodel.LyricContent, 0, len(contentsByKind))
+		for _, kind := range order {
+			content, ok := contentsByKind[kind]
+			if !ok {
+				continue
+			}
+			contents = append(contents, content)
 		}
 		existing.Contents = contents
 	}

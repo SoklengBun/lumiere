@@ -16,7 +16,11 @@ func (r *gormRepo) preload(db *gorm.DB) *gorm.DB {
 	return db.
 		Preload("Items", func(tx *gorm.DB) *gorm.DB { return tx.Order("position ASC") }).
 		Preload("Items.Lyrics").
-		Preload("Items.Lyrics.Artists")
+		Preload("Items.Lyrics.Artists").
+		Preload("Items.Lyrics.Artists.CV").
+		Preload("Items.Lyrics.Covers").
+		Preload("Items.Lyrics.Covers.Artists").
+		Preload("Items.Lyrics.Covers.Artists.CV")
 }
 
 func (r *gormRepo) Create(ctx context.Context, p *playlist.Playlist) error {

@@ -6,7 +6,6 @@ import (
 	lyricsmodel "lumiere/internal/lyrics"
 	playlistmodel "lumiere/internal/playlist"
 	util "lumiere/internal/util"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -28,20 +27,13 @@ type homeSong struct {
 	Covers    []lyricsmodel.LyricCover `json:"covers"`
 }
 
-type compactSong struct {
-	ID      uint                 `json:"id"`
-	VideoID string               `json:"videoId"`
-	Name    string               `json:"name"`
-	Artists []artistmodel.Artist `json:"artists"`
-}
-
 type compactPlaylistItem struct {
 	ID             uint        `json:"id"`
 	LyricsID       uint        `json:"lyricsId"`
 	DefaultCoverID string      `json:"defaultCoverId"`
 	Position       uint        `json:"position"`
 	Note           string      `json:"note"`
-	Song           compactSong `json:"song"`
+	Song           homeSong    `json:"song"`
 }
 
 type compactPlaylist struct {
@@ -73,16 +65,20 @@ func (h *Handler) Get(c echo.Context) error {
 func toHomeSongs(list []lyricsmodel.Lyrics) []homeSong {
 	out := make([]homeSong, 0, len(list))
 	for _, song := range list {
-		out = append(out, homeSong{
-			ID:        song.ID,
-			VideoID:   song.VideoID,
-			Title:     song.Title,
-			AltTitles: song.AltTitles,
-			Artists:   song.Artists,
-			Covers:    song.Covers,
-		})
+		out = append(out, toHomeSong(song))
 	}
 	return out
+}
+
+func toHomeSong(song lyricsmodel.Lyrics) homeSong {
+	return homeSong{
+		ID:        song.ID,
+		VideoID:   song.VideoID,
+		Title:     song.Title,
+		AltTitles: song.AltTitles,
+		Artists:   song.Artists,
+		Covers:    song.Covers,
+	}
 }
 
 func toCompactPlaylists(list []playlistmodel.Playlist) []compactPlaylist {
@@ -96,7 +92,7 @@ func toCompactPlaylists(list []playlistmodel.Playlist) []compactPlaylist {
 				DefaultCoverID: item.DefaultCoverID,
 				Position:       item.Position,
 				Note:           item.Note,
-				Song:           toCompactSong(item.Lyrics),
+				Song:           toHomeSong(item.Lyrics),
 			})
 		}
 
@@ -110,18 +106,4 @@ func toCompactPlaylists(list []playlistmodel.Playlist) []compactPlaylist {
 		})
 	}
 	return out
-}
-
-func toCompactSong(song lyricsmodel.Lyrics) compactSong {
-	name := strings.TrimSpace(song.Title)
-	if name == "" && len(song.AltTitles) > 0 {
-		name = song.AltTitles[0]
-	}
-
-	return compactSong{
-		ID:      song.ID,
-		VideoID: song.VideoID,
-		Name:    name,
-		Artists: song.Artists,
-	}
 }

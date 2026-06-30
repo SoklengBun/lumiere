@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"lumiere/internal/models"
 	playlistmodel "lumiere/internal/playlist"
@@ -23,11 +24,38 @@ func New(svc *playlistsvc.Service, userSvc *usersvc.Service) *Handler {
 }
 
 type addBody struct {
-	Name          string     `json:"name"`
-	Description   string     `json:"description"`
-	IsPublic      bool       `json:"isPublic"`
-	ItemLyricsIDs []uint     `json:"itemLyricsIds"`
-	Items         []itemBody `json:"items"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	IsPublic    jsonBool `json:"isPublic"`
+	LyricsIDs   []uint   `json:"lyricsIds"`
+}
+
+type jsonBool bool
+
+func (b *jsonBool) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*b = false
+		return nil
+	}
+
+	var boolValue bool
+	if err := json.Unmarshal(data, &boolValue); err == nil {
+		*b = jsonBool(boolValue)
+		return nil
+	}
+
+	var stringValue string
+	if err := json.Unmarshal(data, &stringValue); err != nil {
+		return err
+	}
+
+	parsed, err := strconv.ParseBool(strings.TrimSpace(stringValue))
+	if err != nil {
+		return err
+	}
+
+	*b = jsonBool(parsed)
+	return nil
 }
 
 type reorderBody struct {
@@ -35,43 +63,12 @@ type reorderBody struct {
 }
 
 type addItemsBody struct {
-	LyricsIDs []uint     `json:"lyricsIds"`
-	Items     []itemBody `json:"items"`
+	LyricsIDs []uint `json:"lyricsIds"`
 }
 
-type itemBody struct {
-	LyricsID       uint   `json:"lyricsId"`
-	DefaultCoverID string `json:"defaultCoverId"`
-	Note           string `json:"note"`
-}
-
-type artistName struct {
-	Name string `json:"name"`
-}
-
-type compactSong struct {
-	ID      uint         `json:"id"`
-	VideoID string       `json:"videoId"`
-	Name    string       `json:"name"`
-	Artists []artistName `json:"artists"`
-}
-
-type compactPlaylistItem struct {
-	ID             uint        `json:"id"`
-	LyricsID       uint        `json:"lyricsId"`
-	DefaultCoverID string      `json:"defaultCoverId"`
-	Position       uint        `json:"position"`
-	Note           string      `json:"note"`
-	Song           compactSong `json:"song"`
-}
-
-type compactPlaylist struct {
-	ID          uint                  `json:"id"`
-	Name        string                `json:"name"`
-	Description string                `json:"description"`
-	IsPublic    bool                  `json:"isPublic"`
-	CreatedByID uint                  `json:"createdById"`
-	Items       []compactPlaylistItem `json:"items"`
+type updateItemBody struct {
+	DefaultCoverID *string `json:"defaultCoverId"`
+	Note           *string `json:"note"`
 }
 
 func (h *Handler) Get(c echo.Context) error {
@@ -95,7 +92,7 @@ func (h *Handler) Get(c echo.Context) error {
 		}
 	}
 
-	return util.JSONSuccess(c, toCompactPlaylist(*p, false))
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponse(*p, false))
 }
 
 func (h *Handler) List(c echo.Context) error {
@@ -104,12 +101,7 @@ func (h *Handler) List(c echo.Context) error {
 		return util.JSONError(c, util.CodeInternal, err.Error())
 	}
 
-	out := make([]compactPlaylist, 0, len(list))
-	for _, p := range list {
-		out = append(out, toCompactPlaylist(p, true))
-	}
-
-	return util.JSONSuccess(c, out)
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponses(list, true))
 }
 
 func (h *Handler) Search(c echo.Context) error {
@@ -123,12 +115,7 @@ func (h *Handler) Search(c echo.Context) error {
 		return util.JSONError(c, util.CodeInternal, err.Error())
 	}
 
-	out := make([]compactPlaylist, 0, len(list))
-	for _, p := range list {
-		out = append(out, toCompactPlaylist(p, true))
-	}
-
-	return util.JSONSuccess(c, out)
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponses(list, true))
 }
 
 func (h *Handler) Mine(c echo.Context) error {
@@ -141,50 +128,7 @@ func (h *Handler) Mine(c echo.Context) error {
 	if err != nil {
 		return util.JSONError(c, util.CodeInternal, err.Error())
 	}
-	return util.JSONSuccess(c, list)
-}
-
-func toCompactPlaylist(p playlistmodel.Playlist, homeMode bool) compactPlaylist {
-	items := p.Items
-	if homeMode && len(items) > 5 {
-		items = items[:5]
-	}
-
-	outItems := make([]compactPlaylistItem, 0, len(items))
-	for _, it := range items {
-		artists := make([]artistName, 0, len(it.Lyrics.Artists))
-		for _, a := range it.Lyrics.Artists {
-			artists = append(artists, artistName{Name: a.Name})
-		}
-
-		name := strings.TrimSpace(it.Lyrics.Title)
-		if name == "" && len(it.Lyrics.AltTitles) > 0 {
-			name = it.Lyrics.AltTitles[0]
-		}
-
-		outItems = append(outItems, compactPlaylistItem{
-			ID:             it.ID,
-			LyricsID:       it.LyricsID,
-			DefaultCoverID: it.DefaultCoverID,
-			Position:       it.Position,
-			Note:           it.Note,
-			Song: compactSong{
-				ID:      it.Lyrics.ID,
-				VideoID: it.Lyrics.VideoID,
-				Name:    name,
-				Artists: artists,
-			},
-		})
-	}
-
-	return compactPlaylist{
-		ID:          p.ID,
-		Name:        p.Name,
-		Description: p.Description,
-		IsPublic:    p.IsPublic,
-		CreatedByID: p.CreatedByID,
-		Items:       outItems,
-	}
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponses(list, false))
 }
 
 func (h *Handler) Add(c echo.Context) error {
@@ -201,7 +145,7 @@ func (h *Handler) Add(c echo.Context) error {
 		return util.JSONError(c, util.CodeBadRequest, "name is required")
 	}
 
-	items, err := playlistItemsFromBody(b.Items, b.ItemLyricsIDs)
+	items, err := playlistItemsFromLyricsIDs(b.LyricsIDs)
 	if err != nil {
 		return util.JSONError(c, util.CodeBadRequest, err.Error())
 	}
@@ -209,7 +153,7 @@ func (h *Handler) Add(c echo.Context) error {
 	p := &playlistmodel.Playlist{
 		Name:        b.Name,
 		Description: b.Description,
-		IsPublic:    b.IsPublic,
+		IsPublic:    bool(b.IsPublic),
 		CreatedByID: user.ID,
 		Items:       items,
 	}
@@ -218,7 +162,7 @@ func (h *Handler) Add(c echo.Context) error {
 	if err != nil {
 		return util.JSONError(c, util.CodeBadRequest, err.Error())
 	}
-	return util.JSONSuccess(c, created)
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponse(*created, false))
 }
 
 func (h *Handler) Edit(c echo.Context) error {
@@ -241,21 +185,21 @@ func (h *Handler) Edit(c echo.Context) error {
 		return util.JSONError(c, util.CodeBadRequest, "name is required")
 	}
 
-	items, err := playlistItemsFromBody(b.Items, b.ItemLyricsIDs)
+	items, err := playlistItemsFromLyricsIDs(b.LyricsIDs)
 	if err != nil {
 		return util.JSONError(c, util.CodeBadRequest, err.Error())
 	}
 
 	p.Name = b.Name
 	p.Description = b.Description
-	p.IsPublic = b.IsPublic
+	p.IsPublic = bool(b.IsPublic)
 	p.Items = items
 
 	updated, err := h.svc.Update(c.Request().Context(), p)
 	if err != nil {
 		return util.JSONError(c, util.CodeBadRequest, err.Error())
 	}
-	return util.JSONSuccess(c, updated)
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponse(*updated, false))
 }
 
 func (h *Handler) Delete(c echo.Context) error {
@@ -290,7 +234,7 @@ func (h *Handler) AddItems(c echo.Context) error {
 	if err := c.Bind(&b); err != nil {
 		return util.JSONError(c, util.CodeBadRequest, "missing params")
 	}
-	items, err := playlistItemsFromBody(b.Items, b.LyricsIDs)
+	items, err := playlistItemsFromLyricsIDs(b.LyricsIDs)
 	if err != nil {
 		return util.JSONError(c, util.CodeBadRequest, err.Error())
 	}
@@ -306,7 +250,50 @@ func (h *Handler) AddItems(c echo.Context) error {
 	if err != nil {
 		return util.JSONError(c, util.CodeInternal, err.Error())
 	}
-	return util.JSONSuccess(c, updated)
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponse(*updated, false))
+}
+
+func (h *Handler) UpdateItem(c echo.Context) error {
+	itemID, err := parseUintParam(c, "itemId")
+	if err != nil {
+		return util.JSONError(c, util.CodeBadRequest, "invalid item id")
+	}
+
+	user, err := h.authenticate(c)
+	if err != nil {
+		return util.JSONError(c, util.CodeUnauthorized, "")
+	}
+
+	item, err := h.svc.GetItem(c.Request().Context(), itemID)
+	if err != nil {
+		return util.JSONError(c, util.CodeNotFound, err.Error())
+	}
+
+	p, err := h.svc.Get(c.Request().Context(), item.PlaylistID)
+	if err != nil {
+		return util.JSONError(c, util.CodeNotFound, err.Error())
+	}
+	if p.CreatedByID != user.ID {
+		return util.JSONError(c, util.CodeFailed, "not allowed")
+	}
+
+	var b updateItemBody
+	if err := c.Bind(&b); err != nil {
+		return util.JSONError(c, util.CodeBadRequest, "missing params")
+	}
+	if b.DefaultCoverID == nil && b.Note == nil {
+		return util.JSONError(c, util.CodeBadRequest, "missing params")
+	}
+
+	if err := h.svc.UpdateItem(c.Request().Context(), itemID, b.DefaultCoverID, b.Note); err != nil {
+		return util.JSONError(c, util.CodeBadRequest, err.Error())
+	}
+
+	updated, err := h.svc.Get(c.Request().Context(), item.PlaylistID)
+	if err != nil {
+		return util.JSONError(c, util.CodeInternal, err.Error())
+	}
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponse(*updated, false))
 }
 
 func (h *Handler) ReorderItems(c echo.Context) error {
@@ -333,7 +320,7 @@ func (h *Handler) ReorderItems(c echo.Context) error {
 	if err != nil {
 		return util.JSONError(c, util.CodeInternal, err.Error())
 	}
-	return util.JSONSuccess(c, updated)
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponse(*updated, false))
 }
 
 func (h *Handler) DeleteItem(c echo.Context) error {
@@ -359,7 +346,7 @@ func (h *Handler) DeleteItem(c echo.Context) error {
 	if err != nil {
 		return util.JSONError(c, util.CodeInternal, err.Error())
 	}
-	return util.JSONSuccess(c, updated)
+	return util.JSONSuccess(c, playlistmodel.ToPlaylistResponse(*updated, false))
 }
 
 func (h *Handler) authenticate(c echo.Context) (*models.PublicUser, error) {
@@ -404,25 +391,16 @@ func parseUintParam(c echo.Context, key string) (uint, error) {
 	return uint(id64), nil
 }
 
-func playlistItemsFromBody(items []itemBody, legacyLyricsIDs []uint) ([]playlistmodel.PlaylistItem, error) {
-	if len(items) == 0 && len(legacyLyricsIDs) > 0 {
-		items = make([]itemBody, 0, len(legacyLyricsIDs))
-		for _, lyricsID := range legacyLyricsIDs {
-			items = append(items, itemBody{LyricsID: lyricsID})
-		}
-	}
-
-	out := make([]playlistmodel.PlaylistItem, 0, len(items))
-	for i, item := range items {
-		if item.LyricsID == 0 {
+func playlistItemsFromLyricsIDs(lyricsIDs []uint) ([]playlistmodel.PlaylistItem, error) {
+	out := make([]playlistmodel.PlaylistItem, 0, len(lyricsIDs))
+	for i, lyricsID := range lyricsIDs {
+		if lyricsID == 0 {
 			return nil, errors.New("invalid lyrics id")
 		}
 
 		out = append(out, playlistmodel.PlaylistItem{
-			LyricsID:       item.LyricsID,
-			DefaultCoverID: strings.TrimSpace(item.DefaultCoverID),
-			Note:           item.Note,
-			Position:       uint(i + 1),
+			LyricsID: lyricsID,
+			Position: uint(i + 1),
 		})
 	}
 

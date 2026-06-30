@@ -22,6 +22,9 @@ func (s *Service) Create(ctx context.Context, p *playlist.Playlist) (*playlist.P
 	if err := s.validateLyricsIDs(ctx, p.Items); err != nil {
 		return nil, err
 	}
+	if err := validateUniqueLyricsIDs(p.Items, nil); err != nil {
+		return nil, err
+	}
 	if err := s.repo.Create(ctx, p); err != nil {
 		return nil, err
 	}
@@ -52,6 +55,9 @@ func (s *Service) Update(ctx context.Context, p *playlist.Playlist) (*playlist.P
 	if err := s.validateLyricsIDs(ctx, p.Items); err != nil {
 		return nil, err
 	}
+	if err := validateUniqueLyricsIDs(p.Items, nil); err != nil {
+		return nil, err
+	}
 	if err := s.repo.Update(ctx, p); err != nil {
 		return nil, err
 	}
@@ -69,7 +75,47 @@ func (s *Service) AddItems(ctx context.Context, playlistID uint, items []playlis
 	if err := s.validateLyricsIDs(ctx, items); err != nil {
 		return err
 	}
+	current, err := s.repo.GetByID(ctx, playlistID)
+	if err != nil {
+		return err
+	}
+	if err := validateUniqueLyricsIDs(items, current.Items); err != nil {
+		return err
+	}
 	return s.repo.AddItems(ctx, playlistID, items)
+}
+
+func (s *Service) GetItem(ctx context.Context, itemID uint) (*playlist.PlaylistItem, error) {
+	return s.repo.GetItemByID(ctx, itemID)
+}
+
+func (s *Service) UpdateItem(ctx context.Context, itemID uint, defaultCoverID *string, note *string) error {
+	item, err := s.repo.GetItemByID(ctx, itemID)
+	if err != nil {
+		return err
+	}
+
+	if defaultCoverID != nil {
+		trimmedCoverID := strings.TrimSpace(*defaultCoverID)
+		coverExists := false
+		for _, cover := range item.Lyrics.Covers {
+			if cover.CoverID == trimmedCoverID {
+				coverExists = true
+				break
+			}
+		}
+		if trimmedCoverID != "" && !coverExists {
+			return errors.New("default cover ID is invalid")
+		}
+		defaultCoverID = &trimmedCoverID
+	}
+
+	if note != nil {
+		trimmedNote := strings.TrimSpace(*note)
+		note = &trimmedNote
+	}
+
+	return s.repo.UpdateItem(ctx, itemID, defaultCoverID, note)
 }
 
 func (s *Service) ReorderItems(ctx context.Context, playlistID uint, orders []playlist.ItemOrder) error {
@@ -118,5 +164,28 @@ func (s *Service) validateLyricsIDs(ctx context.Context, items []playlist.Playli
 			return errors.New("one or more default cover IDs are invalid")
 		}
 	}
+	return nil
+}
+
+func validateUniqueLyricsIDs(items []playlist.PlaylistItem, existing []playlist.PlaylistItem) error {
+	seen := make(map[uint]struct{}, len(items)+len(existing))
+
+	for _, item := range existing {
+		if item.LyricsID == 0 {
+			continue
+		}
+		seen[item.LyricsID] = struct{}{}
+	}
+
+	for _, item := range items {
+		if item.LyricsID == 0 {
+			continue
+		}
+		if _, exists := seen[item.LyricsID]; exists {
+			return errors.New("playlist already contains this song")
+		}
+		seen[item.LyricsID] = struct{}{}
+	}
+
 	return nil
 }

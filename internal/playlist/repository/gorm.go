@@ -35,6 +35,17 @@ func (r *gormRepo) GetByID(ctx context.Context, id uint) (*playlist.Playlist, er
 	return &p, nil
 }
 
+func (r *gormRepo) GetItemByID(ctx context.Context, itemID uint) (*playlist.PlaylistItem, error) {
+	var item playlist.PlaylistItem
+	if err := r.db.WithContext(ctx).
+		Preload("Lyrics").
+		Preload("Lyrics.Covers").
+		First(&item, "id = ?", itemID).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
 func (r *gormRepo) ListPublic(ctx context.Context) ([]playlist.Playlist, error) {
 	var list []playlist.Playlist
 	if err := r.preload(r.db.WithContext(ctx)).
@@ -86,7 +97,7 @@ func (r *gormRepo) Update(ctx context.Context, p *playlist.Playlist) error {
 
 func (r *gormRepo) ReplaceItems(ctx context.Context, playlistID uint, items []playlist.PlaylistItem) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("playlist_id = ?", playlistID).Delete(&playlist.PlaylistItem{}).Error; err != nil {
+		if err := tx.Unscoped().Where("playlist_id = ?", playlistID).Delete(&playlist.PlaylistItem{}).Error; err != nil {
 			return err
 		}
 
@@ -127,6 +138,31 @@ func (r *gormRepo) AddItems(ctx context.Context, playlistID uint, items []playli
 	})
 }
 
+func (r *gormRepo) UpdateItem(ctx context.Context, itemID uint, defaultCoverID *string, note *string) error {
+	updates := map[string]interface{}{}
+	if defaultCoverID != nil {
+		updates["default_cover_id"] = *defaultCoverID
+	}
+	if note != nil {
+		updates["note"] = *note
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+
+	result := r.db.WithContext(ctx).
+		Model(&playlist.PlaylistItem{}).
+		Where("id = ?", itemID).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *gormRepo) ReorderItems(ctx context.Context, playlistID uint, orders []playlist.ItemOrder) error {
 	if len(orders) == 0 {
 		return nil
@@ -156,13 +192,22 @@ func (r *gormRepo) ReorderItems(ctx context.Context, playlistID uint, orders []p
 
 func (r *gormRepo) DeleteItem(ctx context.Context, playlistID uint, itemID uint) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ? AND playlist_id = ?", itemID, playlistID).Delete(&playlist.PlaylistItem{}).Error; err != nil {
+		if err := tx.Unscoped().Where("id = ? AND playlist_id = ?", itemID, playlistID).Delete(&playlist.PlaylistItem{}).Error; err != nil {
 			return err
 		}
 
 		var items []playlist.PlaylistItem
 		if err := tx.Where("playlist_id = ?", playlistID).Order("position ASC").Find(&items).Error; err != nil {
 			return err
+		}
+
+		for i := range items {
+			tmp := uint(1000000 + i + 1)
+			if err := tx.Model(&playlist.PlaylistItem{}).
+				Where("id = ?", items[i].ID).
+				Update("position", tmp).Error; err != nil {
+				return err
+			}
 		}
 
 		for i := range items {

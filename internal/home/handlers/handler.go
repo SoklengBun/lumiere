@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	artistmodel "lumiere/internal/artist"
 	homesvc "lumiere/internal/home/service"
 	lyricsmodel "lumiere/internal/lyrics"
 	playlistmodel "lumiere/internal/playlist"
@@ -18,36 +17,9 @@ func New(svc *homesvc.Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-type homeSong struct {
-	ID        uint                     `json:"id"`
-	VideoID   string                   `json:"videoId"`
-	Title     string                   `json:"title"`
-	AltTitles []string                 `json:"altTitles"`
-	Artists   []artistmodel.Artist     `json:"artists"`
-	Covers    []lyricsmodel.LyricCover `json:"covers"`
-}
-
-type compactPlaylistItem struct {
-	ID             uint        `json:"id"`
-	LyricsID       uint        `json:"lyricsId"`
-	DefaultCoverID string      `json:"defaultCoverId"`
-	Position       uint        `json:"position"`
-	Note           string      `json:"note"`
-	Song           homeSong    `json:"song"`
-}
-
-type compactPlaylist struct {
-	ID          uint                  `json:"id"`
-	Name        string                `json:"name"`
-	Description string                `json:"description"`
-	IsPublic    bool                  `json:"isPublic"`
-	CreatedByID uint                  `json:"createdById"`
-	Items       []compactPlaylistItem `json:"items"`
-}
-
 type response struct {
-	Songs     []homeSong        `json:"songs"`
-	Playlists []compactPlaylist `json:"playlists"`
+	Songs     []playlistmodel.SongResponse     `json:"songs"`
+	Playlists []playlistmodel.PlaylistResponse `json:"playlists"`
 }
 
 func (h *Handler) Get(c echo.Context) error {
@@ -58,52 +30,14 @@ func (h *Handler) Get(c echo.Context) error {
 
 	return util.JSONSuccess(c, response{
 		Songs:     toHomeSongs(payload.Songs),
-		Playlists: toCompactPlaylists(payload.Playlists),
+		Playlists: playlistmodel.ToPlaylistResponses(payload.Playlists, true),
 	})
 }
 
-func toHomeSongs(list []lyricsmodel.Lyrics) []homeSong {
-	out := make([]homeSong, 0, len(list))
+func toHomeSongs(list []lyricsmodel.Lyrics) []playlistmodel.SongResponse {
+	out := make([]playlistmodel.SongResponse, 0, len(list))
 	for _, song := range list {
-		out = append(out, toHomeSong(song))
-	}
-	return out
-}
-
-func toHomeSong(song lyricsmodel.Lyrics) homeSong {
-	return homeSong{
-		ID:        song.ID,
-		VideoID:   song.VideoID,
-		Title:     song.Title,
-		AltTitles: song.AltTitles,
-		Artists:   song.Artists,
-		Covers:    song.Covers,
-	}
-}
-
-func toCompactPlaylists(list []playlistmodel.Playlist) []compactPlaylist {
-	out := make([]compactPlaylist, 0, len(list))
-	for _, playlist := range list {
-		items := make([]compactPlaylistItem, 0, len(playlist.Items))
-		for _, item := range playlist.Items {
-			items = append(items, compactPlaylistItem{
-				ID:             item.ID,
-				LyricsID:       item.LyricsID,
-				DefaultCoverID: item.DefaultCoverID,
-				Position:       item.Position,
-				Note:           item.Note,
-				Song:           toHomeSong(item.Lyrics),
-			})
-		}
-
-		out = append(out, compactPlaylist{
-			ID:          playlist.ID,
-			Name:        playlist.Name,
-			Description: playlist.Description,
-			IsPublic:    playlist.IsPublic,
-			CreatedByID: playlist.CreatedByID,
-			Items:       items,
-		})
+		out = append(out, playlistmodel.ToSongResponse(song))
 	}
 	return out
 }

@@ -185,15 +185,9 @@ func (h *Handler) Edit(c echo.Context) error {
 		return util.JSONError(c, util.CodeBadRequest, "name is required")
 	}
 
-	items, err := playlistItemsFromLyricsIDs(b.LyricsIDs)
-	if err != nil {
-		return util.JSONError(c, util.CodeBadRequest, err.Error())
-	}
-
 	p.Name = b.Name
 	p.Description = b.Description
 	p.IsPublic = bool(b.IsPublic)
-	p.Items = items
 
 	updated, err := h.svc.Update(c.Request().Context(), p)
 	if err != nil {

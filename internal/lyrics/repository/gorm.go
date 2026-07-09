@@ -61,7 +61,7 @@ func (r *gormRepo) List(ctx context.Context, page int, offset int) ([]lyrics.Lyr
 		Preload("Covers").
 		Preload("Covers.Artists").
 		Preload("Covers.Artists.CV").
-		Order("updated_at DESC").
+		Order("id ASC").
 		Limit(offset).
 		Offset((page - 1) * offset).
 		Find(&list).Error; err != nil {

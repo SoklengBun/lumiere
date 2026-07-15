@@ -70,6 +70,29 @@ type editBody struct {
 	Contents  *[]contentBody `json:"contents"`
 }
 
+func normalizeContentBodies(contents []contentBody) []contentBody {
+	normalized := make([]contentBody, 0, len(contents))
+	indexByKind := make(map[string]int, len(contents))
+	for _, content := range contents {
+		kind := strings.TrimSpace(content.Kind)
+		if kind == "" {
+			continue
+		}
+
+		// Normalize kinds so "Romaji" and "romaji" are one content version.
+		content.Kind = strings.ToLower(kind)
+		if index, ok := indexByKind[content.Kind]; ok {
+			// Keep one entry and let the last submitted value win.
+			normalized[index] = content
+			continue
+		}
+
+		indexByKind[content.Kind] = len(normalized)
+		normalized = append(normalized, content)
+	}
+	return normalized
+}
+
 func (h *Handler) Get(c echo.Context) error {
 	rawID := strings.TrimSpace(c.Param("id"))
 	var (
@@ -175,6 +198,7 @@ func (h *Handler) Add(c echo.Context) error {
 	if b.Title == "" {
 		return util.JSONError(c, util.CodeBadRequest, "title is required")
 	}
+	b.Contents = normalizeContentBodies(b.Contents)
 
 	// build AltTitles
 	var altTitles []string
@@ -202,7 +226,10 @@ func (h *Handler) Add(c echo.Context) error {
 	// build Contents
 	var contents []lyricsmodel.LyricContent
 	for _, c := range b.Contents {
-		contents = append(contents, lyricsmodel.LyricContent{Kind: c.Kind, Content: c.Content})
+		contents = append(contents, lyricsmodel.LyricContent{
+			Kind:    strings.TrimSpace(c.Kind),
+			Content: c.Content,
+		})
 	}
 
 	covers, err := h.resolveCovers(c, b.Covers, b.VideoID)
@@ -301,6 +328,10 @@ func (h *Handler) Edit(c echo.Context) error {
 	if err := c.Bind(&b); err != nil {
 		return util.JSONError(c, util.CodeBadRequest, "missing params")
 	}
+	if b.Contents != nil {
+		normalized := normalizeContentBodies(*b.Contents)
+		b.Contents = &normalized
+	}
 
 	if b.VideoID != nil {
 		videoID := strings.TrimSpace(*b.VideoID)
@@ -348,18 +379,9 @@ func (h *Handler) Edit(c echo.Context) error {
 	}
 
 	if b.Contents != nil {
-		contentsByKind := make(map[string]lyricsmodel.LyricContent, len(existing.Contents))
-		order := make([]string, 0, len(existing.Contents))
-		for _, content := range existing.Contents {
-			kind := strings.TrimSpace(content.Kind)
-			if kind == "" {
-				continue
-			}
-			content.Kind = kind
-			contentsByKind[kind] = content
-			order = append(order, kind)
-		}
-
+		// PUT replaces the complete content list. Contents omitted from the
+		// request must be removed rather than retained from the old record.
+		contents := make([]lyricsmodel.LyricContent, 0, len(*b.Contents))
 		for _, cbody := range *b.Contents {
 			kind := strings.TrimSpace(cbody.Kind)
 			if kind == "" {
@@ -368,30 +390,13 @@ func (h *Handler) Edit(c echo.Context) error {
 
 			content := strings.TrimSpace(cbody.Content)
 			if content == "" {
-				delete(contentsByKind, kind)
 				continue
 			}
 
-			if existingContent, ok := contentsByKind[kind]; ok {
-				existingContent.Content = content
-				contentsByKind[kind] = existingContent
-				continue
-			}
-
-			contentsByKind[kind] = lyricsmodel.LyricContent{
+			contents = append(contents, lyricsmodel.LyricContent{
 				Kind:    kind,
 				Content: content,
-			}
-			order = append(order, kind)
-		}
-
-		contents := make([]lyricsmodel.LyricContent, 0, len(contentsByKind))
-		for _, kind := range order {
-			content, ok := contentsByKind[kind]
-			if !ok {
-				continue
-			}
-			contents = append(contents, content)
+			})
 		}
 		existing.Contents = contents
 	}

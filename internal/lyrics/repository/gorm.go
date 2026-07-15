@@ -155,9 +155,24 @@ func (r *gormRepo) Update(ctx context.Context, l *lyrics.Lyrics) error {
 		}
 
 		if err := tx.Session(&gorm.Session{FullSaveAssociations: true}).
-			Omit("Artists", "Artists.*", "Covers", "Covers.*", "Covers.Artists", "Covers.Artists.*").
+			Omit("Artists", "Artists.*", "Contents", "Contents.*", "Covers", "Covers.*", "Covers.Artists", "Covers.Artists.*").
 			Save(l).Error; err != nil {
 			return err
+		}
+
+		// Contents are replaced as a set by the PUT endpoint. GORM does not
+		// delete child rows that are missing from an association slice, so
+		// remove the old rows explicitly before creating the requested set.
+		if err := tx.Where("lyrics_id = ?", l.ID).Delete(&lyrics.LyricContent{}).Error; err != nil {
+			return err
+		}
+		for i := range l.Contents {
+			content := &l.Contents[i]
+			content.ID = 0
+			content.LyricsID = l.ID
+			if err := tx.Create(content).Error; err != nil {
+				return err
+			}
 		}
 
 		if err := tx.Exec("DELETE FROM lyrics_artists WHERE lyrics_id = ?", l.ID).Error; err != nil {

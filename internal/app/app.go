@@ -1,9 +1,12 @@
 package app
 
 import (
+	"context"
+	"log"
 	artisthandler "lumiere/internal/artist/handlers"
 	artistrepo "lumiere/internal/artist/repository"
 	artistsvc "lumiere/internal/artist/service"
+	"lumiere/internal/cache"
 	"lumiere/internal/config"
 	"lumiere/internal/database"
 	homehandler "lumiere/internal/home/handlers"
@@ -38,7 +41,32 @@ func New() (*echo.Echo, error) {
 		return nil, err
 	}
 
+	var redisCache cache.Cache
+	if cfg.RedisEnabled {
+		var redisClient cache.Cache
+		var redisErr error
+		if cfg.UpstashRedisRESTURL != "" && cfg.UpstashRedisRESTToken != "" {
+			redisClient, redisErr = cache.NewUpstashREST(context.Background(), cfg.UpstashRedisRESTURL, cfg.UpstashRedisRESTToken)
+		} else {
+			redisClient, redisErr = cache.NewRedis(context.Background(), cfg.RedisURL)
+		}
+		if redisErr != nil {
+			// Redis is an optimization, so an unavailable cache should not take
+			// the API offline. The services will use PostgreSQL directly.
+			log.Printf("redis cache disabled: %v", redisErr)
+		} else {
+			redisCache = redisClient
+		}
+	}
+
 	e := echo.New()
+	if redisCache != nil {
+		e.Server.RegisterOnShutdown(func() {
+			if err := redisCache.Close(); err != nil {
+				log.Printf("redis close failed: %v", err)
+			}
+		})
+	}
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -66,7 +94,7 @@ func New() (*echo.Echo, error) {
 	artisthandler.ArtistRoutes(artistGroup, artistHandler)
 
 	lyricsRepo := lyricsrepo.NewGormRepo(db)
-	lyricsSvc := lyricssvc.New(lyricsRepo)
+	lyricsSvc := lyricssvc.New(lyricsRepo, redisCache)
 	lyricsHandler := lyricshandler.New(lyricsSvc, artistSvc, userSvc)
 	lyricsGroup := api.Group("/lyrics")
 	lyricshandler.RegisterRoutes(lyricsGroup, lyricsHandler)

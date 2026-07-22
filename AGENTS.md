@@ -1,101 +1,45 @@
 # AGENTS — AI Coding Agent Guidance
 
-Purpose
+Use this repository as a Go backend service built with Echo, GORM, and PostgreSQL. Keep changes focused, follow the existing layered structure, and prefer small, reviewable edits.
 
-- Provide minimal, actionable guidance so AI coding agents can be productive in this repository.
-
-Quick commands
+## Quick commands
 
 - Build: `go build ./...`
-- Run API locally: `go run ./cmd/api`
-- Dev: `air` (live-reload development runner)
-- Run migrations: `go run migration.go`
-- Tests: `go test ./...`
+- Run API locally: `go run ./cmd/server`
+- Apply schema changes: `go run migration.go`
+- Run tests: `go test ./...`
 
-Project layout (high level)
+## Runtime entrypoints
 
-- `cmd/` — application entrypoints (see [cmd/api/main.go](cmd/api/main.go)).
-- `internal/` — service domains; each domain follows the pattern: `handlers/`, `service/`, `repository/` (GORM implementations in `repository/gorm.go`).
-- `database/connection.go` — centralized DB connection helpers.
-- `models/` — shared models.
-- `migration.go` — DB migration runner.
-- `go.mod` — dependency manifest (use `go` toolchain from `go.mod`).
+- App wiring: [internal/app/app.go](internal/app/app.go)
+- Server startup: [cmd/server/main.go](cmd/server/main.go)
+- Vercel-style entrypoint: [api/index.go](api/index.go)
 
-Conventions and patterns
+## Architecture conventions
 
-- Routing and HTTP: handlers and route wiring live under `internal/*/handlers`.
-- Business logic lives in `internal/*/service` and is invoked by handlers.
-- Persistence: repository implementations use GORM; see `internal/*/repository/gorm.go` for examples.
-- Keep changes focused: prefer small PRs that modify one domain (artist, lyrics, user) at a time.
+- The app is split by domain into handler, service, repository, and model folders under [internal](internal).
+- HTTP route registration happens in handlers, and service-layer business logic stays out of handlers.
+- Persistence is handled with GORM repositories; inspect existing repo implementations for the expected pattern.
+- Shared response behavior lives in [internal/util/response.go](internal/util/response.go).
 
-Agent behaviour guidelines
+## When making changes
 
-- Link, don't embed: reference workspace files rather than copying long docs.
-- Safety-first edits: run `go test ./...` after changes; prefer non-breaking refactors.
-- Use existing patterns: follow the handler→service→repository flow seen in `internal/*`.
-- When editing DB code, check `database/connection.go` and `migration.go` for initialization patterns.
+- Prefer one domain at a time and keep edits scoped.
+- Follow the existing flow: handler → service → repository.
+- If a change touches persistence, inspect [internal/database/connection.go](internal/database/connection.go) and [migration.go](migration.go) before editing.
+- Redis is optional. Treat cache failures as non-fatal; the app should continue serving through PostgreSQL.
+- Before claiming a change is complete, rerun `go test ./...` and confirm the relevant behavior with fresh evidence.
 
-Useful files to inspect
+## Useful references
 
 - [README.md](README.md)
+- [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)
 - [go.mod](go.mod)
-- [migration.go](migration.go)
-- [cmd/api/main.go](cmd/api/main.go)
-- [database/connection.go](database/connection.go)
-- Examples: [internal/artist/repository/gorm.go](internal/artist/repository/gorm.go)
+- [internal/config/config.go](internal/config/config.go)
+- Domain example: [internal/artist/repository/gorm.go](internal/artist/repository/gorm.go)
 
-Suggested next customizations
+## Agent behavior
 
-- Create a `run-and-test` skill that runs `go test ./...` and `go run ./cmd/api` in a disposable environment.
-- Add a `code-review` prompt that enforces small, focused PRs and checks for database migration impact.
-
-Feedback
-
-- If you'd like, I can add a `.github/copilot-instructions.md` variant, or split instructions per subsystem.
-
-**Response Format**
-
-- **Envelope**: All API responses use a standardized JSON envelope:
-
-- **Envelope**: All API responses use a standardized JSON envelope:
-
-  ```json
-  {
-  	"code": 0,        // 0 for success, negative for errors
-  	"message": "...", // human-readable message
-  	"data": { ... }   // payload or null on error
-  }
-  ```
-
-- **Status Codes**: The HTTP status code is always 200 for API responses; the `code` field inside the envelope indicates success or failure. Project conventions:
-  - **0**: success (example message: "success")
-  - **-1**: generic failure ("failed")
-  - **-2**: bad request ("bad request")
-  - **-3**: not found ("not found")
-  - **-4**: internal server error ("internal server error")
-
-- **Examples**:
-
-  Success:
-
-  ```json
-  {
-    "code": 0,
-    "message": "success",
-    "data": { "id": 123, "name": "Example" }
-  }
-  ```
-
-  Error (username not found):
-
-  ```json
-  {
-    "code": -100,
-    "message": "username doesn't exist",
-    "data": null
-  }
-  ```
-
-Notes
-
-- Default messages are provided by `internal/util/response.go` but handlers and services may supply custom messages when returning non-zero codes.
+- Link to existing workspace docs instead of copying long explanations into new edits.
+- Prefer non-breaking refactors and minimal diffs.
+- When the change affects schema or environment assumptions, update the related docs and migration behavior together.

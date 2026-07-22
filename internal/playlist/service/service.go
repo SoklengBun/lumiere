@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	lyricsmodel "lumiere/internal/lyrics"
 	lyricssvc "lumiere/internal/lyrics/service"
 	"lumiere/internal/playlist"
 	playlistrepo "lumiere/internal/playlist/repository"
@@ -97,14 +98,7 @@ func (s *Service) UpdateItem(ctx context.Context, itemID uint, defaultCoverID *s
 
 	if defaultCoverID != nil {
 		trimmedCoverID := strings.TrimSpace(*defaultCoverID)
-		coverExists := false
-		for _, cover := range item.Lyrics.Covers {
-			if cover.CoverID == trimmedCoverID {
-				coverExists = true
-				break
-			}
-		}
-		if trimmedCoverID != "" && !coverExists {
+		if trimmedCoverID != "" && !isValidDefaultCoverID(item.Lyrics, trimmedCoverID) {
 			return errors.New("default cover ID is invalid")
 		}
 		defaultCoverID = &trimmedCoverID
@@ -153,18 +147,25 @@ func (s *Service) validateLyricsIDs(ctx context.Context, items []playlist.Playli
 			continue
 		}
 
-		coverExists := false
-		for _, cover := range lyrics.Covers {
-			if cover.CoverID == items[i].DefaultCoverID {
-				coverExists = true
-				break
-			}
-		}
-		if !coverExists {
+		if !isValidDefaultCoverID(*lyrics, items[i].DefaultCoverID) {
 			return errors.New("one or more default cover IDs are invalid")
 		}
 	}
 	return nil
+}
+
+func isValidDefaultCoverID(lyrics lyricsmodel.Lyrics, defaultCoverID string) bool {
+	if lyrics.VideoID == defaultCoverID {
+		return true
+	}
+
+	for _, cover := range lyrics.Covers {
+		if cover.CoverID == defaultCoverID {
+			return true
+		}
+	}
+
+	return false
 }
 
 func validateUniqueLyricsIDs(items []playlist.PlaylistItem, existing []playlist.PlaylistItem) error {

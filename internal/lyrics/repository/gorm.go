@@ -70,6 +70,25 @@ func (r *gormRepo) List(ctx context.Context, page int, offset int) ([]lyrics.Lyr
 	return list, total, nil
 }
 
+func (r *gormRepo) ListByArtistID(ctx context.Context, artistID uint) ([]lyrics.Lyrics, error) {
+	list := make([]lyrics.Lyrics, 0)
+	if artistID == 0 {
+		return list, nil
+	}
+
+	if err := preloadLyrics(r.db.WithContext(ctx)).
+		Model(&lyrics.Lyrics{}).
+		Joins("JOIN lyrics_artists ON lyrics_artists.lyrics_id = lyrics.id").
+		Where("lyrics_artists.artist_id = ?", artistID).
+		Order("lyrics.updated_at DESC").
+		Order("lyrics.id ASC").
+		Find(&list).Error; err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}
+
 func (r *gormRepo) ListRandom(ctx context.Context, limit int) ([]lyrics.Lyrics, error) {
 	var list []lyrics.Lyrics
 	if limit <= 0 {

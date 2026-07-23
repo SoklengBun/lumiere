@@ -8,15 +8,16 @@ import (
 )
 
 type Config struct {
-	DBHost    string
-	DBPort    string
-	DBName    string
-	DBUser    string
-	DBPass    string
-	DBSSLMode string
-	AppHost   string
-	AppPort   string
-	JWTSecret string
+	DBHost      string
+	DBPort      string
+	DBName      string
+	DBUser      string
+	DBPass      string
+	DBSSLMode   string
+	AppHost     string
+	AppPort     string
+	JWTSecret   string
+	FrontendURL string
 
 	RedisEnabled bool
 	RedisURL     string
@@ -52,6 +53,11 @@ func NewFromEnv() (*Config, error) {
 		redisURL = "redis://localhost:6379/0"
 	}
 
+	frontendURL := get("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "https://anella.vercel.app/"
+	}
+
 	cfg := &Config{
 		DBHost:                get("DB_HOST"),
 		DBPort:                get("DB_PORT"),
@@ -62,6 +68,7 @@ func NewFromEnv() (*Config, error) {
 		AppHost:               get("APP_HOST"),
 		AppPort:               get("APP_PORT"),
 		JWTSecret:             get("JWT_SECRET"),
+		FrontendURL:           frontendURL,
 		RedisEnabled:          redisEnabled,
 		RedisURL:              redisURL,
 		UpstashRedisRESTURL:   upstashRedisRESTURL,

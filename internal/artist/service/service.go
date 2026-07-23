@@ -33,3 +33,7 @@ func (s *Service) FindByName(ctx context.Context, q string) ([]artist.Artist, er
 func (s *Service) List(ctx context.Context) ([]artist.Artist, error) {
 	return s.repo.List(ctx)
 }
+
+func (s *Service) ListByRecentLyrics(ctx context.Context, limit int) ([]artist.Artist, error) {
+	return s.repo.ListByRecentLyrics(ctx, limit)
+}

@@ -152,6 +152,10 @@ func (s *Service) List(ctx context.Context, page int, offset int) ([]lyricsmodel
 	return list, total, nil
 }
 
+func (s *Service) ListByArtistID(ctx context.Context, artistID uint) ([]lyricsmodel.Lyrics, error) {
+	return s.repo.ListByArtistID(ctx, artistID)
+}
+
 func (s *Service) ListRandom(ctx context.Context, limit int) ([]lyricsmodel.Lyrics, error) {
 	return s.repo.ListRandom(ctx, limit)
 }

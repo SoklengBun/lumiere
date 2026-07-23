@@ -158,6 +158,34 @@ func (h *Handler) List(c echo.Context) error {
 	})
 }
 
+func (h *Handler) ListByArtist(c echo.Context) error {
+	rawID := strings.TrimSpace(c.Param("id"))
+	artistID, err := strconv.ParseUint(rawID, 10, 64)
+	if err != nil || artistID == 0 {
+		return util.JSONError(c, util.CodeBadRequest, "invalid artist id")
+	}
+
+	list, err := h.svc.ListByArtistID(c.Request().Context(), uint(artistID))
+	if err != nil {
+		return util.JSONError(c, util.CodeInternal, err.Error())
+	}
+
+	resp := make([]listLyricsResponse, 0, len(list))
+	for _, lyric := range list {
+		resp = append(resp, listLyricsResponse{
+			BaseModel:   lyric.BaseModel,
+			VideoID:     lyric.VideoID,
+			Title:       lyric.Title,
+			AltTitles:   lyric.AltTitles,
+			Artists:     lyric.Artists,
+			Covers:      lyric.Covers,
+			CreatedByID: lyric.CreatedByID,
+		})
+	}
+
+	return util.JSONSuccess(c, resp)
+}
+
 func (h *Handler) Search(c echo.Context) error {
 	q := strings.TrimSpace(c.QueryParam("q"))
 	if q == "" {

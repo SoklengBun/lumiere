@@ -63,6 +63,7 @@ Optional environment variables:
 - `APP_HOST`
 - `APP_PORT`
 - `PORT`
+- `FRONTEND_URL` (defaults to `https://anella.vercel.app/`)
 - `DB_MAX_OPEN_CONNS`
 - `DB_MAX_IDLE_CONNS`
 - `DB_CONN_MAX_LIFETIME_MIN`
@@ -272,6 +273,7 @@ All routes are mounted under `/api`.
 ### Lyrics
 
 - `GET /api/lyrics/search?q=...`
+- `GET /api/lyrics/artist/:id`
 - `GET /api/lyrics/:id`
 - `GET /api/lyrics/list`
 - `GET /api/lyrics/mine`

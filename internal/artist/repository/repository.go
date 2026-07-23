@@ -12,4 +12,5 @@ type ArtistRepo interface {
 	FindByIDs(ctx context.Context, ids []uint) ([]artist.Artist, error)
 	FindByName(ctx context.Context, q string) ([]artist.Artist, error)
 	List(ctx context.Context) ([]artist.Artist, error)
+	ListByRecentLyrics(ctx context.Context, limit int) ([]artist.Artist, error)
 }

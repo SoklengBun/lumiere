@@ -68,3 +68,27 @@ func (r *gormRepo) List(ctx context.Context) ([]artist.Artist, error) {
 	}
 	return list, nil
 }
+
+func (r *gormRepo) ListByRecentLyrics(ctx context.Context, limit int) ([]artist.Artist, error) {
+	var list []artist.Artist
+	if limit <= 0 {
+		return list, nil
+	}
+
+	if err := r.db.WithContext(ctx).
+		Model(&artist.Artist{}).
+		Select("artists.*").
+		Joins("JOIN lyrics_artists ON lyrics_artists.artist_id = artists.id").
+		Joins("JOIN lyrics ON lyrics.id = lyrics_artists.lyrics_id").
+		Where("lyrics.deleted_at IS NULL").
+		Group("artists.id").
+		Order("MAX(lyrics.created_at) DESC").
+		Order("artists.id ASC").
+		Limit(limit).
+		Preload("CV").
+		Find(&list).Error; err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}

@@ -76,7 +76,7 @@ func New() (*echo.Echo, error) {
 	}))
 
 	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello, World! ==> ")
+		return c.HTML(http.StatusOK, landingPageHTML(cfg.FrontendURL))
 	})
 
 	api := e.Group("/api")
@@ -105,7 +105,7 @@ func New() (*echo.Echo, error) {
 	playlistGroup := api.Group("/playlist")
 	playlisthandler.RegisterRoutes(playlistGroup, playlistHandler)
 
-	homeSvc := homesvc.New(lyricsSvc, playlistSvc)
+	homeSvc := homesvc.New(lyricsSvc, playlistSvc, artistSvc)
 	homeHandler := homehandler.New(homeSvc)
 	homeGroup := api.Group("/home")
 	homehandler.RegisterRoutes(homeGroup, homeHandler)

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	artistmodel "lumiere/internal/artist"
 	homesvc "lumiere/internal/home/service"
 	lyricsmodel "lumiere/internal/lyrics"
 	playlistmodel "lumiere/internal/playlist"
@@ -20,6 +21,7 @@ func New(svc *homesvc.Service) *Handler {
 type response struct {
 	Songs     []playlistmodel.SongResponse     `json:"songs"`
 	Playlists []playlistmodel.PlaylistResponse `json:"playlists"`
+	Artists   []artistmodel.Artist             `json:"artists"`
 }
 
 func (h *Handler) Get(c echo.Context) error {
@@ -31,6 +33,7 @@ func (h *Handler) Get(c echo.Context) error {
 	return util.JSONSuccess(c, response{
 		Songs:     toHomeSongs(payload.Songs),
 		Playlists: playlistmodel.ToPlaylistResponses(payload.Playlists, true),
+		Artists:   payload.Artists,
 	})
 }
 
